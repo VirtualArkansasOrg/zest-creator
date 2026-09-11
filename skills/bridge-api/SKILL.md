@@ -30,7 +30,7 @@ The bridge URL comes from `zest.config.json` (`bridgeUrl`, default `/public/zest
 ## Core Methods
 
 ### Zest.version
-Bridge API version string. Currently `"3.0.0"`.
+Bridge API version string. Currently `"3.1.0"`.
 
 ### Zest.onReady(callback)
 Fires when LTI context is received from the wrapper. If context is already available, fires immediately. **Always use this as your entry point.**
@@ -94,10 +94,15 @@ var result = await Zest.submitScore(85, {
   },
   comment: 'Scored 85%'   // Optional
 });
-// result: { success: true } or { success: false, error: '...' }
+// result: { success: true, agsStatus: 'ok' | 'failed' | 'skipped', submissionId, duplicate }
+//      or { success: false, error: '...' }
 ```
 
-**Canvas behavior**: Score appears immediately in gradebook as 85/100. Teacher can view artifacts in SpeedGrader via review.html.
+**Canvas behavior**: Score appears immediately in gradebook as 85/100 (the server scales it to the assignment's points, so a 10-point assignment shows 8.5/10). Teacher can view artifacts in SpeedGrader via review.html.
+
+**Always look at `agsStatus`.** `success: true` means the server saved the work; `agsStatus: 'failed'` means Canvas did not accept the grade yet (the server keeps retrying for 24 hours). Tell the student their work is saved and the grade will appear shortly, and do not offer a "try again" that resubmits the same answers. `'skipped'` means there is no gradebook line for this placement (a page embed rather than an assignment).
+
+**Retries are safe.** Bridge 3.1 tags every submission with an id derived from its payload, so calling `submitScore` again with the same answers (after a timeout or network error) returns the first submission (`duplicate: true`) instead of creating a second gradebook entry. A different set of answers is a new attempt.
 
 ### Zest.submitWork(options) — Teacher-Graded
 
@@ -220,6 +225,12 @@ var next = Zest.redo();   // Next state or null
 ### Zest.hasUnsyncedChanges()
 Returns `true` if localStorage state differs from server.
 
+### Sync status values
+
+`'synced'`, `'dirty'` (saved locally, not yet on the server), `'syncing'`, `'error'` (server unreachable; will retry), `'expired'` (the Canvas session is gone, typically after many hours; the draft stays in localStorage and is sent on the next launch). Show `'expired'` as "Reopen this activity from Canvas to keep saving"; do not treat it as an error the student can fix in place. `Zest.getSyncStatus()` returns the current value.
+
+Since bridge 3.1 a sync also runs 5 seconds after each `saveState()` and whenever the tab is hidden, so students rarely lose more than a few seconds of work. A save result may carry `conflict: true` when the same student changed the state from another device in the meantime; the most recent save wins, so content should not need to handle it.
+
 ### Zest.onSyncStatus(callback)
 Fires with sync status changes. Use this to show a save indicator.
 
@@ -267,7 +278,11 @@ Zest.onReady(function(ctx) {
 
 **How it works**: When the embed wrapper loads, it resolves the config by checking the `zest_content_config` table for the contentId. If no override exists, it falls back to the `assessment.json` file from the zip. The resolved config is included in the `zest-context` postMessage to the content iframe.
 
-### Zest.getConfig()
+### Scope (assignmentId)
+
+`getConfig`, `saveConfig` and `deleteConfig` take an optional `assignmentId`. Omit it (or pass `''`) for the content-level config every placement shares, as in bridge 3.0. Pass an assignment id for a per-assignment override; the server refuses those with `{ success: false, code: 'PER_ASSIGNMENT_DISABLED' }` until the administrator enables them, so editors should fall back to the content-level save when they see that code. When the editor is opened from an assignment and overrides are enabled, the wrapper shows an "Apply settings to" bar and applies the teacher's choice automatically; an explicit `assignmentId` argument always wins over the bar.
+
+### Zest.getConfig(assignmentId?)
 Load config for this zest from the server. Returns a Promise.
 
 ```javascript
@@ -281,7 +296,7 @@ The `source` field indicates where the config was found:
 - `"default"` — default config from the `assessment.json` file in the zip
 - `"none"` — no config available
 
-### Zest.saveConfig(configData)
+### Zest.saveConfig(configData, assignmentId?)
 Save config for this zest to the server. Instructor-only. Creates or updates the config record.
 
 ```javascript
@@ -293,7 +308,7 @@ var result = await Zest.saveConfig({
 // { success: true } or { success: false, error: '...' }
 ```
 
-### Zest.deleteConfig()
+### Zest.deleteConfig(assignmentId?)
 Delete config for this zest from the server. Reverts to the default `assessment.json` from the zip.
 
 ```javascript
