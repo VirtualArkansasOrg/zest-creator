@@ -1,9 +1,16 @@
 {
   "name": "zest",
   "version": "1.0.0",
-  "description": "Create interactive Canvas content with Zest — quizzes, labs, simulations with auto/teacher grading and state persistence",
+  "description": "Create interactive Canvas content with Zest \u2014 quizzes, labs, simulations with auto/teacher grading and state persistence",
   "author": {
     "name": "Kyle Yancey"
   },
-  "keywords": ["canvas", "lti", "education", "interactive", "zest"]
+  "keywords": [
+    "canvas",
+    "lti",
+    "education",
+    "interactive",
+    "zest"
+  ],
+  "license": "MIT"
 }

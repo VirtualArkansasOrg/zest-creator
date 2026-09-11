@@ -73,4 +73,4 @@ This validates your content and packages it as a `.zest` file.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE). The names "Zest" and "Zestable" are trademarks of Virtual Arkansas (applications pending); see [TRADEMARKS.md](TRADEMARKS.md).
