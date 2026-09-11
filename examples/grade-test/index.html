@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zest Grade Test</title>
+  <script src="/public/zest-bridge.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px;
+      background: #f8f9fa;
+      color: #2d3b45;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 20px; color: #0770A2; margin: 0; }
+    h2 { font-size: 16px; margin-bottom: 12px; color: #394B58; }
+    .user-info { font-size: 14px; line-height: 1.8; color: #555; }
+    .user-info strong { color: #2d3b45; }
+
+    .quiz-section { margin-top: 16px; }
+    .question {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #f0f7fb;
+      border-radius: 8px;
+      border-left: 3px solid #0770A2;
+    }
+    .question p { font-weight: 600; margin-bottom: 8px; }
+    .question label {
+      display: block;
+      padding: 6px 12px;
+      margin: 4px 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+    .question label:hover { background: #e0f0fa; }
+    .question input[type="radio"] { margin-right: 8px; }
+
+    .btn-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .submit-btn {
+      display: inline-block;
+      padding: 12px 32px;
+      background: #0770A2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .submit-btn:hover { background: #065a82; }
+    .submit-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    .reset-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: transparent;
+      color: #c0392b;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .reset-btn:hover { background: #fdf0ef; border-color: #c0392b; }
+
+    .sync-indicator {
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .sync-dot.synced { background: #27ae60; }
+    .sync-dot.dirty { background: #f39c12; }
+    .sync-dot.syncing { background: #3498db; animation: pulse 1s infinite; }
+    .sync-dot.error { background: #e74c3c; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .result {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+    .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .result.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+    .debug { font-family: monospace; font-size: 12px; background: #f1f1f1; padding: 12px; border-radius: 6px; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 8px; }
+
+    .restored-banner {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .restored-banner.visible { display: flex; }
+    .reset-btn.armed { background: #fdf0ef; border-color: #c0392b; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h1>Grade Submission Test</h1>
+      <div class="sync-indicator" id="sync-status" style="display:none;">
+        <span class="sync-dot synced" id="sync-dot"></span>
+        <span id="sync-text">Saved</span>
+      </div>
+    </div>
+    <div id="user-section" class="user-info">
+      <p>Waiting for LTI context...</p>
+    </div>
+  </div>
+
+  <div id="restored-banner" class="restored-banner">
+    Your previous answers have been restored.
+  </div>
+
+  <div class="card quiz-section">
+    <h2>Mini Quiz (3 Questions)</h2>
+
+    <div class="question">
+      <p>1. What does LTI stand for?</p>
+      <label><input type="radio" name="q1" value="a"> Learning Tools Integration</label>
+      <label><input type="radio" name="q1" value="b"> Learning Tools Interoperability</label>
+      <label><input type="radio" name="q1" value="c"> Linked Teaching Interface</label>
+    </div>
+
+    <div class="question">
+      <p>2. What format does AGS use for grade passback?</p>
+      <label><input type="radio" name="q2" value="a"> XML</label>
+      <label><input type="radio" name="q2" value="b"> JSON</label>
+      <label><input type="radio" name="q2" value="c"> CSV</label>
+    </div>
+
+    <div class="question">
+      <p>3. Which protocol does LTI 1.3 use for authentication?</p>
+      <label><input type="radio" name="q3" value="a"> OAuth 1.0</label>
+      <label><input type="radio" name="q3" value="b"> SAML</label>
+      <label><input type="radio" name="q3" value="c"> OpenID Connect</label>
+    </div>
+
+    <div class="btn-row">
+      <button id="submit-btn" class="submit-btn" disabled>Submit Answers</button>
+      <button id="reset-btn" class="reset-btn" style="display:none;">Reset Quiz</button>
+    </div>
+    <div id="result" class="result"></div>
+  </div>
+
+  <div class="card">
+    <h2>Debug Log</h2>
+    <div id="debug" class="debug">Initializing...</div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var debugEl = document.getElementById('debug');
+      var userSection = document.getElementById('user-section');
+      var submitBtn = document.getElementById('submit-btn');
+      var resetBtn = document.getElementById('reset-btn');
+      var resultEl = document.getElementById('result');
+      var syncDot = document.getElementById('sync-dot');
+      var syncText = document.getElementById('sync-text');
+      var syncStatus = document.getElementById('sync-status');
+      var restoredBanner = document.getElementById('restored-banner');
+
+      // Correct answers
+      var answers = { q1: 'b', q2: 'b', q3: 'c' };
+
+      // Track if quiz has been submitted (to prevent double-submit after restore)
+      var submitted = false;
+
+      function log(msg) {
+        var ts = new Date().toLocaleTimeString();
+        debugEl.textContent += '\n[' + ts + '] ' + msg;
+        debugEl.scrollTop = debugEl.scrollHeight;
+      }
+
+      // ---- State Persistence ----
+
+      /**
+       * Gather current quiz state into a saveable object
+       */
+      function gatherState() {
+        var state = { answers: {} };
+        for (var i = 1; i <= 3; i++) {
+          var selected = document.querySelector('input[name="q' + i + '"]:checked');
+          state.answers['q' + i] = selected ? selected.value : null;
+        }
+        state.submitted = submitted;
+        return state;
+      }
+
+      /**
+       * Restore quiz UI from a saved state object
+       */
+      function restoreState(state) {
+        if (!state || !state.answers) return false;
+
+        var restored = false;
+        for (var i = 1; i <= 3; i++) {
+          var val = state.answers['q' + i];
+          if (val) {
+            var radio = document.querySelector('input[name="q' + i + '"][value="' + val + '"]');
+            if (radio) {
+              radio.checked = true;
+              restored = true;
+            }
+          }
+        }
+
+        if (state.submitted) {
+          submitted = true;
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Already Submitted';
+          // Show the result from the submitted state
+          var score = 0;
+          for (var j = 1; j <= 3; j++) {
+            if (state.answers['q' + j] === answers['q' + j]) score++;
+          }
+          var pct = Math.round((score / 3) * 100);
+          resultEl.className = 'result success';
+          resultEl.innerHTML = '<strong>Previously submitted:</strong> ' + pct + '% (' + score + '/3)';
+          resultEl.style.display = 'block';
+        }
+
+        return restored;
+      }
+
+      /**
+       * Save current state (called on radio button change)
+       */
+      function autoSave() {
+        var state = gatherState();
+        Zest.saveState(state);
+        log('State auto-saved');
+      }
+
+      // Listen for radio button changes -> auto-save
+      var radios = document.querySelectorAll('input[type="radio"]');
+      for (var r = 0; r < radios.length; r++) {
+        radios[r].addEventListener('change', autoSave);
+      }
+
+      // ---- Sync Status Indicator ----
+      Zest.onSyncStatus(function(status) {
+        syncDot.className = 'sync-dot ' + status;
+        var labels = {
+          synced: 'Saved',
+          dirty: 'Unsaved changes',
+          syncing: 'Saving...',
+          error: 'Save failed'
+        };
+        syncText.textContent = labels[status] || status;
+      });
+
+      // ---- Reset Button ----
+      // confirm() is silently blocked inside the cross-origin Canvas iframe.
+      // Two-click pattern: the first click arms the button, a second click
+      // within 4 seconds resets; otherwise it disarms itself.
+      var resetArmed = false;
+      var resetLabel = resetBtn.textContent;
+      resetBtn.addEventListener('click', function() {
+        if (!resetArmed) {
+          resetArmed = true;
+          resetBtn.textContent = 'Click again to confirm reset';
+          resetBtn.classList.add('armed');
+          setTimeout(function() {
+            if (resetArmed) {
+              resetArmed = false;
+              resetBtn.textContent = resetLabel;
+              resetBtn.classList.remove('armed');
+            }
+          }, 4000);
+          return;
+        }
+        resetArmed = false;
+        resetBtn.textContent = resetLabel;
+        resetBtn.classList.remove('armed');
+
+        log('Resetting quiz...');
+
+        // Clear all radio selections
+        var allRadios = document.querySelectorAll('input[type="radio"]');
+        for (var i = 0; i < allRadios.length; i++) {
+          allRadios[i].checked = false;
+        }
+
+        // Reset submit button
+        submitted = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Answers';
+
+        // Hide result and restored banner
+        resultEl.style.display = 'none';
+        resultEl.className = 'result';
+        restoredBanner.classList.remove('visible');
+
+        // Clear saved state
+        Zest.clearState().then(function() {
+          log('State cleared from server');
+        });
+
+        log('Quiz reset complete');
+      });
+
+      // ---- Wait for bridge context ----
+      Zest.onReady(function(ctx) {
+        log('Context received: ' + JSON.stringify(ctx, null, 2));
+
+        var html = '<p><strong>Name:</strong> ' + (ctx.name || 'N/A') + '</p>';
+        html += '<p><strong>User ID:</strong> ' + (ctx.id || 'N/A') + '</p>';
+        html += '<p><strong>Email:</strong> ' + (ctx.email || 'N/A') + '</p>';
+        html += '<p><strong>Role:</strong> ' + (ctx.roles ? ctx.roles.join(', ') : 'N/A') + '</p>';
+        html += '<p><strong>Course:</strong> ' + (ctx.courseTitle || ctx.courseId || 'N/A') + '</p>';
+        html += '<p><strong>Assignment ID:</strong> ' + (ctx.assignmentId || 'None (not in assignment)') + '</p>';
+        html += '<p><strong>Review Mode:</strong> ' + Zest.isReviewMode() + '</p>';
+        userSection.innerHTML = html;
+
+        // Show sync indicator and reset button
+        syncStatus.style.display = 'flex';
+        resetBtn.style.display = 'inline-block';
+
+        // Load saved state
+        Zest.loadState().then(function(state) {
+          if (state) {
+            log('State loaded: ' + JSON.stringify(state));
+            var restored = restoreState(state);
+            if (restored) {
+              restoredBanner.classList.add('visible');
+              log('Previous answers restored');
+            }
+          } else {
+            log('No saved state found — starting fresh');
+          }
+
+          // Enable submit button (if not already submitted)
+          if (!submitted) {
+            submitBtn.disabled = false;
+          }
+        });
+      });
+
+      // ---- Submit quiz ----
+      submitBtn.addEventListener('click', function() {
+        if (submitted) return;
+
+        var score = 0;
+        var total = 3;
+        var studentAnswers = {};
+        var startTime = Date.now();
+
+        // Grade each question
+        for (var i = 1; i <= total; i++) {
+          var selected = document.querySelector('input[name="q' + i + '"]:checked');
+          var answer = selected ? selected.value : null;
+          studentAnswers['q' + i] = {
+            selected: answer,
+            correct: answers['q' + i],
+            isCorrect: answer === answers['q' + i]
+          };
+          if (answer === answers['q' + i]) score++;
+        }
+
+        var pct = Math.round((score / total) * 100);
+        log('Quiz scored: ' + score + '/' + total + ' (' + pct + '%)');
+
+        submitted = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        // Save submitted state
+        var state = gatherState();
+        Zest.saveState(state);
+
+        // Submit via bridge
+        Zest.submitScore(pct, {
+          maxScore: 100,
+          artifacts: {
+            answers: studentAnswers,
+            score: score,
+            total: total,
+            percentage: pct,
+            completedAt: new Date().toISOString(),
+            timeSpentMs: Date.now() - startTime
+          },
+          comment: 'Scored ' + score + '/' + total + ' (' + pct + '%)'
+        }).then(function(result) {
+          log('Submit result: ' + JSON.stringify(result));
+
+          if (result.success) {
+            resultEl.className = 'result success';
+            resultEl.innerHTML = '<strong>Score submitted!</strong> ' + pct + '% (' + score + '/' + total + ')' +
+              (result.error ? '<br><em>Warning: ' + result.error + '</em>' : '');
+            submitBtn.textContent = 'Already Submitted';
+          } else {
+            resultEl.className = 'result error';
+            resultEl.innerHTML = '<strong>Submission failed:</strong> ' + (result.error || 'Unknown error');
+            submitted = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Retry Submit';
+            // Update saved state to un-submitted
+            Zest.saveState(gatherState());
+          }
+          resultEl.style.display = 'block';
+        }).catch(function(err) {
+          log('Submit error: ' + err.message);
+          resultEl.className = 'result error';
+          resultEl.innerHTML = '<strong>Error:</strong> ' + err.message;
+          resultEl.style.display = 'block';
+          submitted = false;
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Retry Submit';
+          Zest.saveState(gatherState());
+        });
+      });
+
+      // Set height for auto-resize
+      Zest.setHeight(document.body.scrollHeight + 40);
+
+      log('Grade test loaded. Waiting for LTI context...');
+    })();
+  </script>
+</body>
+</html>

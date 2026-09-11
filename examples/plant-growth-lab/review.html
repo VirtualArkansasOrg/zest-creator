@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Growth Lab - Teacher Review</title>
+  <script src="/public/zest-bridge.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px;
+      background: #f0f7f0;
+      color: #2d3b45;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; color: #2e7d32; }
+    h2 { font-size: 16px; margin-bottom: 12px; color: #394B58; }
+    h3 { font-size: 14px; margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .score-meta { font-size: 13px; line-height: 1.8; color: #555; }
+    .score-meta strong { color: #2d3b45; }
+
+    /* Dual columns */
+    .trial-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) { .trial-columns { grid-template-columns: 1fr; } }
+    .trial-panel {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+    }
+    .trial-panel.trial-a { border-color: #4CAF50; }
+    .trial-panel.trial-b { border-color: #2196F3; }
+    .trial-label {
+      position: absolute;
+      top: -10px;
+      left: 16px;
+      padding: 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: white;
+      border-radius: 4px;
+    }
+    .trial-a .trial-label { color: #2e7d32; }
+    .trial-b .trial-label { color: #1565C0; }
+
+    /* Badges */
+    .badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-sun { background: #FFF9C4; color: #F57F17; }
+    .badge-water { background: #E3F2FD; color: #1565C0; }
+    .badge-soil { background: #EFEBE9; color: #5D4037; }
+    .badge-temp { background: #FCE4EC; color: #C62828; }
+    .badge-changed {
+      border: 2px dashed #FF5722;
+      background: #FFF3E0;
+    }
+
+    /* Comparison chart */
+    .chart-container { margin-bottom: 16px; }
+    .comparison-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 110px;
+      padding: 0 4px;
+      border-bottom: 2px solid #c8e6c9;
+      border-left: 2px solid #c8e6c9;
+      margin-bottom: 4px;
+    }
+    .chart-group {
+      flex: 1;
+      display: flex;
+      gap: 1px;
+      align-items: flex-end;
+    }
+    .chart-group .bar-a {
+      flex: 1;
+      background: #4CAF50;
+      border-radius: 2px 2px 0 0;
+      min-width: 6px;
+      position: relative;
+    }
+    .chart-group .bar-b {
+      flex: 1;
+      background: #2196F3;
+      border-radius: 2px 2px 0 0;
+      min-width: 6px;
+    }
+    .chart-labels {
+      display: flex;
+      gap: 2px;
+      padding: 0 4px;
+    }
+    .chart-labels span {
+      flex: 1;
+      text-align: center;
+      font-size: 9px;
+      color: #888;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* Compare table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .compare-table th {
+      background: #e8f5e9;
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #c8e6c9;
+    }
+    .compare-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .col-a { color: #2e7d32; font-weight: 600; }
+    .col-b { color: #1565C0; font-weight: 600; }
+
+    /* Data tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .data-table th {
+      background: #f5f5f5;
+      text-align: left;
+      padding: 4px 6px;
+      font-weight: 600;
+      border-bottom: 1px solid #ddd;
+    }
+    .data-table td {
+      padding: 4px 6px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* Responses */
+    .response-box {
+      background: #f9fdf9;
+      border: 1px solid #e0e0e0;
+      border-left: 3px solid #2e7d32;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .response-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+      font-size: 15px;
+    }
+    .stat-line {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .stat-line strong { color: #2d3b45; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Lab Report Review</h1>
+    <p class="subtitle">Plant Growth Experiment &mdash; Dual-Trial Comparison</p>
+  </div>
+
+  <div id="content" class="no-data">
+    <p>Loading submission data...</p>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var contentEl = document.getElementById('content');
+      var condLabels = {
+        sunlight: { low: 'Low (4 hrs/day)', medium: 'Medium (8 hrs/day)', high: 'High (12 hrs/day)' },
+        water: { low: 'Low (50mL/day)', medium: 'Medium (100mL/day)', high: 'High (200mL/day)' },
+        soil: { sandy: 'Sandy', loam: 'Loam', clay: 'Clay' },
+        temperature: { cold: 'Cold (10-15 C)', moderate: 'Moderate (20-25 C)', hot: 'Hot (30-35 C)' }
+      };
+      var varLabels = { sunlight: 'Sunlight', water: 'Water', soil: 'Soil', temperature: 'Temperature' };
+
+      function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function formatTime(ms) {
+        if (!ms) return 'Unknown';
+        var m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+        return m > 0 ? m + 'm ' + s + 's' : s + 's';
+      }
+
+      function badgeHtml(type, value, changed) {
+        var label = condLabels[type] ? (condLabels[type][value] || value) : value;
+        return '<span class="badge badge-' + type.substring(0,3) + (changed ? ' badge-changed' : '') + '">' + label + '</span>';
+      }
+
+      function trialDataTable(data) {
+        var h = '<table class="data-table"><tr><th>Day</th><th>Ht</th><th>Lvs</th><th>Health</th><th>Note</th></tr>';
+        for (var i = 0; i < data.length; i++) {
+          var d = data[i];
+          h += '<tr><td>' + d.day + '</td><td>' + d.height + '</td><td>' + d.leaves + '</td><td>' + d.health + '</td><td>' + (d.note || '-') + '</td></tr>';
+        }
+        return h + '</table>';
+      }
+
+      Zest.onReady(function() {
+        var submission = Zest.getSubmission();
+        if (!submission) {
+          contentEl.innerHTML = '<div class="no-data"><p>No submission data available.</p></div>';
+          return;
+        }
+
+        var a = submission.artifacts || {};
+        var tA = a.trialA || {};
+        var tB = a.trialB || {};
+        var cA = tA.conditions || {};
+        var cB = tB.conditions || {};
+        var dA = tA.growthData || [];
+        var dB = tB.growthData || [];
+        var analysis = a.analysis || {};
+
+        // Find which variables differ
+        var diffs = {};
+        ['sunlight','water','soil','temperature'].forEach(function(k) {
+          diffs[k] = cA[k] !== cB[k];
+        });
+
+        var html = '';
+
+        // ---- Info Card ----
+        html += '<div class="card">';
+        html += '<h2>Submission Info</h2>';
+        html += '<div class="score-meta">';
+        if (submission.userName) html += '<p><strong>Student:</strong> ' + esc(submission.userName) + '</p>';
+        html += '<p><strong>Submitted:</strong> ' + (submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : '?') + '</p>';
+        if (a.timeSpentMs) html += '<p><strong>Time Spent:</strong> ' + formatTime(a.timeSpentMs) + '</p>';
+        if (a.independentVariable) html += '<p><strong>Chosen Variable:</strong> ' + (varLabels[a.independentVariable] || a.independentVariable) + '</p>';
+        html += '<p style="margin-top:8px; padding:8px 12px; background:#fff3cd; border-radius:6px; font-size:13px; color:#856404;">';
+        html += '<strong>Teacher-graded:</strong> Review the student\'s work below and assign a grade using the SpeedGrader grade box.';
+        html += '</p>';
+        html += '</div></div>';
+
+        // ---- Hypothesis ----
+        html += '<div class="card">';
+        html += '<h2>Student Hypothesis</h2>';
+        html += '<div class="response-box">' + esc(a.hypothesis || 'No hypothesis provided') + '</div>';
+        html += '</div>';
+
+        // ---- Side-by-side conditions ----
+        html += '<div class="card">';
+        html += '<h2>Experiment Setup</h2>';
+        html += '<div class="trial-columns">';
+
+        // Trial A conditions
+        html += '<div class="trial-panel trial-a"><span class="trial-label">Trial A (Control)</span>';
+        html += '<div class="badges">';
+        html += badgeHtml('sunlight', cA.sunlight, diffs.sunlight);
+        html += badgeHtml('water', cA.water, diffs.water);
+        html += badgeHtml('soil', cA.soil, diffs.soil);
+        html += badgeHtml('temperature', cA.temperature, diffs.temperature);
+        html += '</div>';
+        html += '<div class="stat-line">';
+        html += '<strong>Result:</strong> ' + (tA.finalHeight || 0) + ' cm, ' + (tA.finalLeaves || 0) + ' leaves, ' + (tA.finalHealth || '?');
+        html += '</div></div>';
+
+        // Trial B conditions
+        html += '<div class="trial-panel trial-b"><span class="trial-label">Trial B (Test)</span>';
+        html += '<div class="badges">';
+        html += badgeHtml('sunlight', cB.sunlight, diffs.sunlight);
+        html += badgeHtml('water', cB.water, diffs.water);
+        html += badgeHtml('soil', cB.soil, diffs.soil);
+        html += badgeHtml('temperature', cB.temperature, diffs.temperature);
+        html += '</div>';
+        html += '<div class="stat-line">';
+        html += '<strong>Result:</strong> ' + (tB.finalHeight || 0) + ' cm, ' + (tB.finalLeaves || 0) + ' leaves, ' + (tB.finalHealth || '?');
+        html += '</div></div>';
+
+        html += '</div></div>';
+
+        // ---- Comparison Chart ----
+        if (dA.length > 1 && dB.length > 1) {
+          html += '<div class="card">';
+          html += '<h2>Growth Comparison</h2>';
+          html += '<div class="legend">';
+          html += '<span><span class="legend-dot" style="background:#4CAF50;"></span>Trial A</span>';
+          html += '<span><span class="legend-dot" style="background:#2196F3;"></span>Trial B</span>';
+          html += '</div>';
+
+          html += '<div class="chart-container">';
+          html += '<div class="comparison-chart">';
+
+          var maxH = 1;
+          for (var i = 0; i < dA.length; i++) maxH = Math.max(maxH, dA[i].height, dB[i] ? dB[i].height : 0);
+
+          for (var i = 0; i < dA.length; i++) {
+            var hA = dA[i].height, hB = dB[i] ? dB[i].height : 0;
+            html += '<div class="chart-group">';
+            html += '<div class="bar-a" style="height:' + Math.max((hA / maxH) * 100, 2) + '%"></div>';
+            html += '<div class="bar-b" style="height:' + Math.max((hB / maxH) * 100, 2) + '%"></div>';
+            html += '</div>';
+          }
+          html += '</div><div class="chart-labels">';
+          for (var i = 0; i < dA.length; i++) html += '<span>D' + i + '</span>';
+          html += '</div></div>';
+
+          // Comparison table
+          var fA = dA[dA.length - 1] || {};
+          var fB = dB[dB.length - 1] || {};
+          html += '<h3 style="margin-top:12px;">Final Comparison</h3>';
+          html += '<table class="compare-table">';
+          html += '<tr><th>Metric</th><th>Trial A</th><th>Trial B</th><th>Diff</th></tr>';
+          var hDiff = ((fB.height || 0) - (fA.height || 0)).toFixed(1);
+          var lDiff = (fB.leaves || 0) - (fA.leaves || 0);
+          html += '<tr><td>Final Height</td><td class="col-a">' + (fA.height || 0) + ' cm</td><td class="col-b">' + (fB.height || 0) + ' cm</td><td>' + (hDiff > 0 ? '+' : '') + hDiff + ' cm</td></tr>';
+          html += '<tr><td>Leaves</td><td class="col-a">' + (fA.leaves || 0) + '</td><td class="col-b">' + (fB.leaves || 0) + '</td><td>' + (lDiff > 0 ? '+' : '') + lDiff + '</td></tr>';
+          html += '<tr><td>Health</td><td class="col-a">' + (fA.health || '?') + '</td><td class="col-b">' + (fB.health || '?') + '</td><td></td></tr>';
+          html += '</table>';
+
+          html += '</div>';
+
+          // Daily data (collapsed)
+          html += '<div class="card">';
+          html += '<h2>Daily Data</h2>';
+          html += '<div class="trial-columns">';
+          html += '<div class="trial-panel trial-a"><span class="trial-label">Trial A</span>' + trialDataTable(dA) + '</div>';
+          html += '<div class="trial-panel trial-b"><span class="trial-label">Trial B</span>' + trialDataTable(dB) + '</div>';
+          html += '</div></div>';
+        }
+
+        // ---- Analysis ----
+        html += '<div class="card">';
+        html += '<h2>Analysis Responses</h2>';
+        var qs = [
+          { label: '1. Differences between Trial A and Trial B', key: 'patterns' },
+          { label: '2. Was the hypothesis supported?', key: 'hypothesisResult' },
+          { label: '3. Why did the variable have this effect?', key: 'explanation' },
+          { label: '4. Conclusion and next experiment', key: 'conclusion' }
+        ];
+        for (var q = 0; q < qs.length; q++) {
+          html += '<div class="response-label">' + qs[q].label + '</div>';
+          html += '<div class="response-box">' + esc(analysis[qs[q].key] || 'No response') + '</div>';
+        }
+        html += '</div>';
+
+        contentEl.innerHTML = html;
+        Zest.setHeight(document.body.scrollHeight + 40);
+      });
+    })();
+  </script>
+</body>
+</html>

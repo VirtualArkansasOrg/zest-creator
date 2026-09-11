@@ -1,0 +1,6 @@
+{
+  "$comment": "Workspace settings read by /zest-new and scripts/zest-build.js. bridgeUrl is what packages put in their <script src>; the root-relative default works on every Zest server.",
+  "bridgeUrl": "/public/zest-bridge.js",
+  "contentDir": "content",
+  "outDir": "dist"
+}

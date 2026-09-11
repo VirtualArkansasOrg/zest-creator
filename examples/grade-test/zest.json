@@ -1,0 +1,9 @@
+{
+  "zestSpec": "1.0",
+  "name": "Grade Test Quiz",
+  "version": "1.1.0",
+  "description": "Five-question auto-graded quiz with saved progress. Reference example from the Zest server.",
+  "grading": "auto",
+  "reviewFile": "review.html",
+  "tags": ["example", "quiz"]
+}

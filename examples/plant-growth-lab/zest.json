@@ -1,0 +1,9 @@
+{
+  "zestSpec": "1.0",
+  "name": "Plant Growth Lab",
+  "version": "1.1.0",
+  "description": "Teacher-graded science experiment with saved progress and an SVG chart. Reference example from the Zest server.",
+  "grading": "teacher",
+  "reviewFile": "review.html",
+  "tags": ["example", "lab", "science"]
+}

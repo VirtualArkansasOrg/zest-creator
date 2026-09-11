@@ -1,75 +1,78 @@
 # Zest Content Creator
 
-Create interactive Canvas LMS content using Claude Code. Build quizzes, labs, simulations, and other activities that embed directly in Canvas pages with grading and state persistence.
+Build interactive Canvas content with Claude Code. Quizzes, labs, simulations and other activities that run inside Canvas pages and assignments through [Zest](https://github.com/virtualarkansas/zest-server), with grades in the gradebook, student work in SpeedGrader and progress saved between sessions.
 
-## What is Zest?
+A **Zestable** is one self-contained content package: a `.zest` file (a zip) containing HTML, CSS, JavaScript and a `zest.json` manifest, as defined by the [Zest specification](https://github.com/virtualarkansas/zest-spec).
 
-[Zest](https://github.com/virtualarkansas/zest-server) is a self-hosted Canvas LTI 1.3 tool that lets you embed interactive HTML/JS/CSS content in Canvas pages. This template repo provides a Claude Code plugin that helps you create that content conversationally.
+## Getting started
 
-A **Zestable** is one self-contained content package — a `.zest` file (renamed zip) containing HTML, CSS, JS, and a `zest.json` manifest.
+### 1. Make your own copy
 
-## Getting Started
+Click **Use this template** on GitHub. Your copy is a private workspace; the content you build stays in it.
 
-### 1. Create Your Workspace
+### 2. Open it in Claude Code
 
-Click **"Use this template"** on GitHub to create your own copy of this repo.
+Open the repository in [Claude Code](https://claude.ai/claude-code) (the web app, the CLI or an IDE extension). The `/zest-new` and `/zest-build` commands and the supporting skills load automatically from the `.claude/` directory; there is nothing to install.
 
-### 2. Open in Claude Code
+### 3. Describe what you want
 
-Open your new repo in [Claude Code](https://claude.ai/claude-code) (CLI or Web).
+> Make me a ten-question multiple choice quiz about the American Revolution for 8th grade history, auto-graded, with hints the teacher can turn off.
 
-### 3. Create Content
+Or start with `/zest-new`. Claude asks about grading, saving progress and configurable settings, then writes the files into `content/<name>/`.
 
-Tell Claude what you want to build:
-
-> "Make me a 10-question multiple choice quiz about the American Revolution for my 8th grade history class"
-
-Or use the slash command:
-
-> `/zest-new`
-
-Claude will ask you about grading, state persistence, parameters, and other options, then build the content.
-
-### 4. Package for Upload
-
-When your content is ready:
+### 4. Build the package
 
 > `/zest-build`
 
-This validates your content and packages it as a `.zest` file.
+This runs `scripts/zest-build.js`, which checks the package (manifest, files, answer key, Canvas rules, bridge include) and writes `dist/<name>.zest`. Errors block the build; warnings are explained so you can decide.
 
 ### 5. Upload to Canvas
 
-1. In Canvas, open the Rich Content Editor (edit any page or assignment)
-2. Click the Zest toolbar button ("Embed Interactive Content")
-3. Upload your `.zest` file
-4. If the content has parameters, configure them in the picker UI
-5. Choose **Interactive** mode (for graded content) or **Static** (for non-graded)
-6. Save — your content appears as an interactive iframe in the Canvas page
+1. Edit a page or assignment in Canvas and open the Rich Content Editor.
+2. Click the Zest toolbar button ("Embed Interactive Content").
+3. Upload the `.zest` file and choose **Interactive** (graded content, saved work) or **Static** (a plain embed).
+4. For a graded assignment, set the submission type to External Tool, choose Zest and pick the content.
+5. Test it as a student in a test course.
 
-## Features
+## What you can build
 
-- **Auto-Graded Content** — Quizzes, fill-in-the-blank, matching exercises with scores that appear instantly in the Canvas gradebook
-- **Teacher-Graded Content** — Lab reports, essays, experiments where the teacher reviews and assigns grades in SpeedGrader
-- **State Persistence** — Students can close the tab and return later; their work is automatically saved
-- **SpeedGrader Integration** — Custom review view shows student work to teachers
-- **Spec File (`zest.json`)** — Auto-configure content metadata, grading mode, and settings on upload
-- **Secure Answer Keys** — Store answer keys server-side; never exposed to students
-- **Per-Placement Parameters** — Same content, different settings per assignment (difficulty, time limits, etc.)
-- **Configurable Sandbox** — Control iframe permissions per-content
-- **Security Review** — IT admins can scan content for security issues before deployment
+- **Auto-graded** quizzes, fill-in-the-blank and matching exercises with scores that appear in the gradebook immediately
+- **Teacher-graded** lab reports, essays and experiments reviewed in SpeedGrader through a custom `review.html`
+- Activities that **save progress** so students can leave and come back on any device
+- Content with **teacher-configurable settings** declared in `zest.json`
+- Content with a **secure answer key** that students can never load
+- Simulations with a **teacher config editor** (`editor.html`) for per-content assessment settings
 
-## Plugin Commands
+## Workspace layout
+
+```
+zest.config.json        bridgeUrl (default /public/zest-bridge.js), contentDir, outDir
+content/<name>/         one directory per activity
+dist/                   built .zest files
+scripts/zest-build.js   validator and packager (Node, no dependencies)
+commands/ skills/ agents/   the Claude Code plugin; mirrored into .claude/ by scripts/sync-claude.js
+```
+
+`bridgeUrl` is the only setting most people never touch: the root-relative default works on every Zest server. Change it only if your institution serves content from a different origin than the bridge.
+
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/zest-new` | Create new interactive content through conversation |
-| `/zest-build` | Validate and package content as a `.zest` file for upload |
+| `/zest-new` | Create a new activity through conversation |
+| `/zest-build` | Validate and package an activity as `dist/<name>.zest` |
+
+The skills (bridge API, content patterns, review viewer, editor, spec file, security review) are used by the commands and can be invoked directly by describing the task.
+
+## Using it as an installed plugin
+
+The repository is also laid out as a Claude Code plugin (`.claude-plugin/plugin.json` with `commands/`, `skills/` and `agents/`). Add it to a marketplace of your own or point Claude Code at a checkout to use the commands in another project. The template route above is the simplest.
 
 ## Requirements
 
-- A Zest instance deployed and connected to your Canvas LMS
-- Claude Code (CLI or Web)
+- A Zest server connected to your Canvas (ask your Canvas administrator, or [run one](https://github.com/virtualarkansas/zest-server))
+- Claude Code
+- Node.js 18 or later for `scripts/zest-build.js` (Claude Code's environments have it)
 
 ## License
 

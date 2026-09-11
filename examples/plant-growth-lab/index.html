@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Growth Lab</title>
+  <script src="/public/zest-bridge.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px;
+      background: #f0f7f0;
+      color: #2d3b45;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 4px;
+    }
+    h1 { font-size: 22px; margin-bottom: 0; color: #2e7d32; }
+    h2 { font-size: 16px; margin-bottom: 12px; color: #394B58; }
+    h3 { font-size: 14px; margin-bottom: 8px; color: #2e7d32; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .user-info { font-size: 13px; color: #666; margin-bottom: 12px; }
+
+    /* Sync indicator */
+    .sync-indicator {
+      font-size: 12px;
+      color: #888;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      padding-top: 4px;
+    }
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .sync-dot.synced { background: #27ae60; }
+    .sync-dot.dirty { background: #f39c12; }
+    .sync-dot.syncing { background: #3498db; animation: pulse 1s infinite; }
+    .sync-dot.error { background: #e74c3c; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Restored banner */
+    .restored-banner {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .restored-banner.visible { display: flex; }
+
+    /* Two-column trial layout */
+    .trial-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) { .trial-columns { grid-template-columns: 1fr; } }
+    .trial-panel {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+    }
+    .trial-panel.trial-a { border-color: #4CAF50; }
+    .trial-panel.trial-b { border-color: #2196F3; }
+    .trial-label {
+      position: absolute;
+      top: -10px;
+      left: 16px;
+      padding: 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: white;
+      border-radius: 4px;
+    }
+    .trial-a .trial-label { color: #2e7d32; }
+    .trial-b .trial-label { color: #1565C0; }
+
+    /* Setup fields */
+    .setup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 3px;
+    }
+    .field select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .field select:focus {
+      outline: none;
+      border-color: #2e7d32;
+      box-shadow: 0 0 0 2px rgba(46,125,50,0.15);
+    }
+
+    /* Simulation */
+    .sim-container {
+      position: relative;
+      background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #8B4513 60%, #8B4513 100%);
+      border-radius: 10px;
+      height: 200px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .sun {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #FFD700;
+      box-shadow: 0 0 20px rgba(255,215,0,0.6);
+      top: 10px;
+      right: 16px;
+      transition: all 0.5s;
+    }
+    .sun.low { opacity: 0.4; box-shadow: 0 0 6px rgba(255,215,0,0.3); }
+    .sun.high { opacity: 1; box-shadow: 0 0 30px rgba(255,215,0,0.8); }
+    .rain-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 40%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .rain-overlay.active { opacity: 1; }
+    .raindrop {
+      position: absolute;
+      width: 2px;
+      background: rgba(100,149,237,0.6);
+      animation: fall linear infinite;
+    }
+    @keyframes fall {
+      from { transform: translateY(-20px); }
+      to { transform: translateY(200px); }
+    }
+    .plant-container {
+      position: absolute;
+      bottom: 40%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .stem {
+      width: 5px;
+      background: #4CAF50;
+      border-radius: 3px 3px 0 0;
+      transition: height 0.8s ease;
+      position: relative;
+    }
+    .leaf {
+      position: absolute;
+      width: 0;
+      height: 0;
+      transition: all 0.5s ease;
+    }
+    .leaf-left {
+      border-right: 10px solid #66BB6A;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+    .leaf-right {
+      border-left: 10px solid #66BB6A;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+    .flower {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%) scale(0);
+      width: 14px;
+      height: 14px;
+      background: #FF6F61;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px #FFAB91;
+      transition: transform 0.5s ease;
+    }
+    .soil-label {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: rgba(255,255,255,0.7);
+      white-space: nowrap;
+    }
+    .day-counter {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      background: rgba(0,0,0,0.3);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* Comparison line chart */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+    .chart-container svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .chart-line {
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .chart-line-a { stroke: #4CAF50; }
+    .chart-line-b { stroke: #2196F3; }
+    .chart-area-a { fill: rgba(76,175,80,0.08); }
+    .chart-area-b { fill: rgba(33,150,243,0.08); }
+    .chart-dot {
+      stroke-width: 2;
+      stroke: white;
+    }
+    .chart-dot-a { fill: #4CAF50; }
+    .chart-dot-b { fill: #2196F3; }
+    .chart-grid { stroke: #e8e8e8; stroke-width: 0.5; }
+    .chart-axis-label { font-size: 9px; fill: #999; font-family: -apple-system, sans-serif; }
+    .chart-y-label { font-size: 9px; fill: #999; font-family: -apple-system, sans-serif; text-anchor: end; }
+    .chart-axis-line { stroke: #c8e6c9; stroke-width: 1.5; }
+    .legend {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* Stats comparison table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .compare-table th {
+      background: #e8f5e9;
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #c8e6c9;
+    }
+    .compare-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .compare-table .col-a { color: #2e7d32; font-weight: 600; }
+    .compare-table .col-b { color: #1565C0; font-weight: 600; }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #2e7d32; color: white; }
+    .btn-primary:hover:not(:disabled) { background: #1b5e20; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-secondary:hover:not(:disabled) { background: #bdbdbd; }
+    .btn-submit { background: #0770A2; color: white; }
+    .btn-submit:hover:not(:disabled) { background: #065a82; }
+    .btn-reset {
+      background: transparent;
+      color: #c0392b;
+      border: 1px solid #e0e0e0;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { background: #fdf0ef; border-color: #c0392b; }
+
+    /* Progress steps */
+    .steps {
+      display: flex;
+      margin-bottom: 20px;
+      gap: 4px;
+    }
+    .step {
+      flex: 1;
+      text-align: center;
+      padding: 8px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      background: #e0e0e0;
+      color: #888;
+      transition: all 0.3s;
+    }
+    .step.active { background: #2e7d32; color: white; }
+    .step.done { background: #a5d6a7; color: #1b5e20; }
+
+    .phase { display: none; }
+    .phase.active { display: block; }
+
+    .result {
+      margin-top: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
+    .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
+
+    .analysis-field { margin-bottom: 12px; }
+    .analysis-field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+    .analysis-field textarea { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 60px; }
+    .analysis-field textarea:focus { outline: none; border-color: #2e7d32; box-shadow: 0 0 0 2px rgba(46,125,50,0.15); }
+
+    .hint {
+      background: #e8f5e9;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #2e7d32;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .inline-error { margin-top: 6px; color: #c0392b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h1>Plant Growth Experiment</h1>
+        <p class="subtitle">Compare two sets of growing conditions to investigate how variables affect plant growth</p>
+      </div>
+      <div class="sync-indicator" id="sync-status">
+        <span class="sync-dot synced" id="sync-dot"></span>
+        <span id="sync-text">Saved</span>
+      </div>
+    </div>
+    <div id="user-info" class="user-info">Loading...</div>
+  </div>
+
+  <div id="restored-banner" class="restored-banner">
+    Your previous progress has been restored.
+  </div>
+
+  <div class="card">
+    <div class="steps">
+      <div class="step active" id="step-1">1. Hypothesis</div>
+      <div class="step" id="step-2">2. Setup</div>
+      <div class="step" id="step-3">3. Simulate</div>
+      <div class="step" id="step-4">4. Compare</div>
+      <div class="step" id="step-5">5. Analyze</div>
+      <div class="step" id="step-6">6. Submit</div>
+    </div>
+
+    <!-- Phase 1: Hypothesis -->
+    <div class="phase active" id="phase-1">
+      <h2>State Your Hypothesis</h2>
+      <div class="hint">
+        A good hypothesis predicts how changing ONE variable will affect plant growth.
+        You'll set up two trials &mdash; a <strong>control</strong> and a <strong>test</strong> &mdash; changing only one variable between them.
+      </div>
+      <div class="analysis-field">
+        <label>Which variable will you change between trials?</label>
+        <select id="variable-choice" style="width:100%; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; margin-bottom:12px;">
+          <option value="sunlight">Sunlight Level</option>
+          <option value="water">Water Amount</option>
+          <option value="soil">Soil Type</option>
+          <option value="temperature">Temperature</option>
+        </select>
+      </div>
+      <div class="analysis-field">
+        <label>Your Hypothesis</label>
+        <textarea id="hypothesis" placeholder="Example: I predict that a plant with high sunlight will grow taller than one with low sunlight, because light provides energy for photosynthesis."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btn-to-setup">Next: Set Up Trials</button>
+      <button class="btn-reset" id="btn-reset" style="display:none;">Start Over</button>
+    </div>
+
+    <!-- Phase 2: Setup both trials -->
+    <div class="phase" id="phase-2">
+      <h2>Configure Two Trials</h2>
+      <div class="hint" id="setup-hint">
+        Change only <strong>one variable</strong> between Trial A and Trial B. Keep everything else the same for a fair comparison.
+      </div>
+      <div class="trial-columns">
+        <!-- Trial A -->
+        <div class="trial-panel trial-a">
+          <span class="trial-label">Trial A (Control)</span>
+          <div class="setup-grid">
+            <div class="field">
+              <label>Sunlight</label>
+              <select id="a-sunlight">
+                <option value="low">Low (4 hrs)</option>
+                <option value="medium" selected>Medium (8 hrs)</option>
+                <option value="high">High (12 hrs)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Water</label>
+              <select id="a-water">
+                <option value="low">Low (50mL)</option>
+                <option value="medium" selected>Medium (100mL)</option>
+                <option value="high">High (200mL)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Soil</label>
+              <select id="a-soil">
+                <option value="sandy">Sandy</option>
+                <option value="loam" selected>Loam</option>
+                <option value="clay">Clay</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Temperature</label>
+              <select id="a-temperature">
+                <option value="cold">Cold (10-15 C)</option>
+                <option value="moderate" selected>Moderate (20-25 C)</option>
+                <option value="hot">Hot (30-35 C)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Trial B -->
+        <div class="trial-panel trial-b">
+          <span class="trial-label">Trial B (Test)</span>
+          <div class="setup-grid">
+            <div class="field">
+              <label>Sunlight</label>
+              <select id="b-sunlight">
+                <option value="low">Low (4 hrs)</option>
+                <option value="medium" selected>Medium (8 hrs)</option>
+                <option value="high">High (12 hrs)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Water</label>
+              <select id="b-water">
+                <option value="low">Low (50mL)</option>
+                <option value="medium" selected>Medium (100mL)</option>
+                <option value="high">High (200mL)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Soil</label>
+              <select id="b-soil">
+                <option value="sandy">Sandy</option>
+                <option value="loam" selected>Loam</option>
+                <option value="clay">Clay</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Temperature</label>
+              <select id="b-temperature">
+                <option value="cold">Cold (10-15 C)</option>
+                <option value="moderate" selected>Moderate (20-25 C)</option>
+                <option value="hot">Hot (30-35 C)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="setup-warning" style="display:none; padding:8px 12px; background:#fff3cd; color:#856404; border-radius:6px; font-size:13px; margin-bottom:12px;"></div>
+      <button class="btn btn-secondary" id="btn-back-hyp">Back</button>
+      <button class="btn btn-primary" id="btn-run">Run Both Simulations</button>
+      <button class="btn-reset btn-reset-all" style="display:none;">Start Over</button>
+    </div>
+
+    <!-- Phase 3: Side-by-side simulation -->
+    <div class="phase" id="phase-3">
+      <h2 id="sim-title">Simulating 10 Days...</h2>
+      <div class="trial-columns">
+        <div class="trial-panel trial-a">
+          <span class="trial-label">Trial A</span>
+          <div class="sim-container">
+            <div class="day-counter" id="a-day">Day 0</div>
+            <div class="sun" id="a-sun"></div>
+            <div class="rain-overlay" id="a-rain"></div>
+            <div class="plant-container">
+              <div class="stem" id="a-stem" style="height:4px;">
+                <div class="leaf leaf-left" id="a-leaf1" style="top:0; left:-10px;"></div>
+                <div class="leaf leaf-right" id="a-leaf2" style="top:0; right:-10px;"></div>
+                <div class="leaf leaf-left" id="a-leaf3" style="top:0; left:-10px;"></div>
+                <div class="leaf leaf-right" id="a-leaf4" style="top:0; right:-10px;"></div>
+                <div class="flower" id="a-flower"></div>
+              </div>
+            </div>
+            <div class="soil-label" id="a-soil-label">Loam</div>
+          </div>
+          <div style="font-size:12px; color:#2e7d32; font-weight:600; text-align:center;" id="a-stats">Height: 0 cm | Leaves: 0</div>
+        </div>
+        <div class="trial-panel trial-b">
+          <span class="trial-label">Trial B</span>
+          <div class="sim-container">
+            <div class="day-counter" id="b-day">Day 0</div>
+            <div class="sun" id="b-sun"></div>
+            <div class="rain-overlay" id="b-rain"></div>
+            <div class="plant-container">
+              <div class="stem" id="b-stem" style="height:4px;">
+                <div class="leaf leaf-left" id="b-leaf1" style="top:0; left:-10px;"></div>
+                <div class="leaf leaf-right" id="b-leaf2" style="top:0; right:-10px;"></div>
+                <div class="leaf leaf-left" id="b-leaf3" style="top:0; left:-10px;"></div>
+                <div class="leaf leaf-right" id="b-leaf4" style="top:0; right:-10px;"></div>
+                <div class="flower" id="b-flower"></div>
+              </div>
+            </div>
+            <div class="soil-label" id="b-soil-label">Loam</div>
+          </div>
+          <div style="font-size:12px; color:#1565C0; font-weight:600; text-align:center;" id="b-stats">Height: 0 cm | Leaves: 0</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-to-compare" disabled>Next: Compare Results</button>
+      <button class="btn-reset btn-reset-all" style="display:none;">Start Over</button>
+    </div>
+
+    <!-- Phase 4: Compare -->
+    <div class="phase" id="phase-4">
+      <h2>Compare Results</h2>
+      <div class="legend">
+        <span><span class="legend-dot" style="background:#4CAF50;"></span>Trial A (Control)</span>
+        <span><span class="legend-dot" style="background:#2196F3;"></span>Trial B (Test)</span>
+      </div>
+      <div class="card" style="padding:16px;">
+        <h3>Growth Over Time</h3>
+        <div class="chart-container" id="compare-chart"></div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <h3>Final Comparison</h3>
+        <table class="compare-table" id="compare-table">
+          <thead><tr><th>Metric</th><th>Trial A</th><th>Trial B</th><th>Difference</th></tr></thead>
+          <tbody id="compare-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-secondary" id="btn-back-sim">Re-run Simulation</button>
+      <button class="btn btn-primary" id="btn-to-analysis">Next: Write Analysis</button>
+      <button class="btn-reset btn-reset-all" style="display:none;">Start Over</button>
+    </div>
+
+    <!-- Phase 5: Analysis -->
+    <div class="phase" id="phase-5">
+      <h2>Analyze Your Results</h2>
+      <div class="analysis-field">
+        <label>1. What differences did you observe between Trial A and Trial B?</label>
+        <textarea id="analysis-patterns" placeholder="Compare the growth rates, final heights, leaf counts, and health status between the two trials..."></textarea>
+      </div>
+      <div class="analysis-field">
+        <label>2. Was your hypothesis supported? Cite specific data.</label>
+        <textarea id="analysis-hypothesis" placeholder="Refer to the specific numbers from each trial to explain whether your prediction was correct..."></textarea>
+      </div>
+      <div class="analysis-field">
+        <label>3. Why do you think the variable you changed had this effect?</label>
+        <textarea id="analysis-explanation" placeholder="Explain the science behind your results (e.g., how does sunlight affect photosynthesis?)..."></textarea>
+      </div>
+      <div class="analysis-field">
+        <label>4. Conclusion: What did you learn, and what would you test next?</label>
+        <textarea id="analysis-conclusion" placeholder="Summarize your findings and propose a follow-up experiment..."></textarea>
+      </div>
+      <button class="btn btn-secondary" id="btn-back-compare">Back to Comparison</button>
+      <button class="btn btn-submit" id="btn-submit">Submit Lab Report</button>
+      <button class="btn-reset btn-reset-all" style="display:none;">Start Over</button>
+      <div id="result" class="result"></div>
+    </div>
+
+    <!-- Phase 6: Complete -->
+    <div class="phase" id="phase-6">
+      <div style="text-align:center; padding:32px;">
+        <div style="font-size:48px; margin-bottom:12px;">&#127793;</div>
+        <h2 style="color:#2e7d32; margin-bottom:8px;">Lab Report Submitted!</h2>
+        <p style="color:#666; font-size:14px;" id="final-msg">Your experiment data and analysis have been recorded.</p>
+        <button class="btn-reset" id="btn-reset-final" style="margin-top:16px;">Start Over</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- State ----
+      var currentPhase = 1;
+      var trialA = { data: [], conditions: {} };
+      var trialB = { data: [], conditions: {} };
+      var simInterval = null;
+      var startTime = Date.now();
+      var TOTAL_PHASES = 6;
+      var labSubmitted = false;
+
+      // ---- Simulation model ----
+      var growthFactors = {
+        sunlight: { low: 0.5, medium: 1.0, high: 1.3 },
+        water:    { low: 0.4, medium: 1.0, high: 0.7 },
+        soil:     { sandy: 0.6, loam: 1.0, clay: 0.8 },
+        temperature: { cold: 0.5, moderate: 1.0, hot: 0.6 }
+      };
+      var condLabels = {
+        sunlight: { low: 'Low (4 hrs)', medium: 'Med (8 hrs)', high: 'High (12 hrs)' },
+        water: { low: 'Low (50mL)', medium: 'Med (100mL)', high: 'High (200mL)' },
+        soil: { sandy: 'Sandy', loam: 'Loam', clay: 'Clay' },
+        temperature: { cold: 'Cold', moderate: 'Moderate', hot: 'Hot' }
+      };
+
+      // ---- DOM refs ----
+      var syncDot = document.getElementById('sync-dot');
+      var syncText = document.getElementById('sync-text');
+      var syncStatusEl = document.getElementById('sync-status');
+      var restoredBanner = document.getElementById('restored-banner');
+      var resetBtn = document.getElementById('btn-reset');
+      var resetFinalBtn = document.getElementById('btn-reset-final');
+
+      // ---- Helpers ----
+      function $(id) { return document.getElementById(id); }
+
+      // alert() is silently blocked inside the cross-origin Canvas iframe, so
+      // validation messages are shown inline next to the field instead.
+      function showInlineError(el, msg) {
+        var note = el.parentNode.querySelector('.inline-error');
+        if (!note) {
+          note = document.createElement('div');
+          note.className = 'inline-error';
+          note.setAttribute('role', 'alert');
+          el.parentNode.insertBefore(note, el.nextSibling);
+        }
+        note.textContent = msg;
+        el.focus();
+        clearTimeout(note._timer);
+        note._timer = setTimeout(function() {
+          if (note.parentNode) note.parentNode.removeChild(note);
+        }, 6000);
+      }
+      function rand(a, b) { return Math.random() * (b - a) + a; }
+
+      function goPhase(n) {
+        for (var i = 1; i <= TOTAL_PHASES; i++) {
+          $('phase-' + i).classList.toggle('active', i === n);
+          var step = $('step-' + i);
+          step.classList.remove('active', 'done');
+          if (i < n) step.classList.add('done');
+          else if (i === n) step.classList.add('active');
+        }
+        currentPhase = n;
+        Zest.setHeight(document.body.scrollHeight + 40);
+        // Auto-save on phase change (except during simulation animation)
+        if (n !== 3) autoSave();
+      }
+
+      function getConditions(prefix) {
+        return {
+          sunlight: $(prefix + '-sunlight').value,
+          water: $(prefix + '-water').value,
+          soil: $(prefix + '-soil').value,
+          temperature: $(prefix + '-temperature').value
+        };
+      }
+
+      function setConditions(prefix, cond) {
+        if (!cond) return;
+        if (cond.sunlight) $(prefix + '-sunlight').value = cond.sunlight;
+        if (cond.water) $(prefix + '-water').value = cond.water;
+        if (cond.soil) $(prefix + '-soil').value = cond.soil;
+        if (cond.temperature) $(prefix + '-temperature').value = cond.temperature;
+      }
+
+      function computeGrowthFactor(c) {
+        return growthFactors.sunlight[c.sunlight] *
+               growthFactors.water[c.water] *
+               growthFactors.soil[c.soil] *
+               growthFactors.temperature[c.temperature];
+      }
+
+      function simulateTrial(conditions) {
+        var data = [];
+        var gf = computeGrowthFactor(conditions);
+        var height = 0, leaves = 0;
+        data.push({ day: 0, height: 0, leaves: 0, health: 'Seed', growth: 0, note: 'Seed planted' });
+
+        for (var day = 1; day <= 10; day++) {
+          var base = 2.5 * gf;
+          var daily = base * (0.7 + Math.random() * 0.6) * (1 - day * 0.04);
+          if (conditions.water === 'high' && day > 6) daily *= 0.5;
+          if (conditions.temperature === 'hot' && conditions.sunlight === 'high') daily *= 0.7;
+          height += Math.max(daily, -0.5);
+          height = Math.max(0, height);
+
+          if (height > 3 && leaves < 2) leaves = 2;
+          if (height > 8 && leaves < 4) leaves = 4;
+          if (height > 14 && gf > 0.6) leaves = 6;
+
+          var health = gf > 0.8 ? 'Healthy' : gf > 0.5 ? 'Fair' : 'Poor';
+          if (conditions.water === 'high' && day > 6) health = 'Wilting';
+          if (conditions.temperature === 'hot' && conditions.sunlight === 'high' && day > 4) health = 'Heat stress';
+          if (conditions.water === 'low' && conditions.sunlight === 'high') health = 'Drought stress';
+
+          var note = '';
+          if (day === 1) note = 'Germination';
+          else if (day === 3 && height > 3) note = 'First leaves';
+          else if (day === 5 && height > 8) note = 'Rapid growth';
+          else if (day === 10 && height > 16) note = 'Flowering';
+          else if (health === 'Wilting') note = 'Overwatering';
+          else if (health === 'Heat stress') note = 'Heat stress';
+          else if (health === 'Drought stress') note = 'Drought';
+
+          data.push({
+            day: day,
+            height: Math.round(height * 10) / 10,
+            leaves: leaves,
+            health: health,
+            growth: Math.round(daily * 10) / 10,
+            note: note
+          });
+        }
+        return data;
+      }
+
+      // ---- Plant animation ----
+      function createRaindrops(el, waterLevel) {
+        el.innerHTML = '';
+        var count = waterLevel === 'low' ? 6 : waterLevel === 'medium' ? 14 : 30;
+        for (var i = 0; i < count; i++) {
+          var d = document.createElement('div');
+          d.className = 'raindrop';
+          d.style.left = Math.random() * 100 + '%';
+          d.style.height = (6 + Math.random() * 10) + 'px';
+          d.style.animationDuration = (0.5 + Math.random() * 0.5) + 's';
+          d.style.animationDelay = Math.random() * 2 + 's';
+          el.appendChild(d);
+        }
+      }
+
+      function animatePlant(prefix, data, day) {
+        var d = data[day] || data[data.length - 1];
+        $(prefix + '-day').textContent = 'Day ' + d.day;
+        $(prefix + '-stats').textContent = 'Height: ' + d.height + ' cm | Leaves: ' + d.leaves + ' | ' + d.health;
+
+        var stemH = Math.min(d.height * 6, 120);
+        $(prefix + '-stem').style.height = stemH + 'px';
+
+        if (d.leaves >= 2) {
+          $(prefix + '-leaf1').style.top = (-stemH * 0.4) + 'px';
+          $(prefix + '-leaf1').style.borderRightWidth = '12px';
+          $(prefix + '-leaf2').style.top = (-stemH * 0.4) + 'px';
+          $(prefix + '-leaf2').style.borderLeftWidth = '12px';
+        }
+        if (d.leaves >= 4) {
+          $(prefix + '-leaf3').style.top = (-stemH * 0.7) + 'px';
+          $(prefix + '-leaf3').style.borderRightWidth = '14px';
+          $(prefix + '-leaf4').style.top = (-stemH * 0.7) + 'px';
+          $(prefix + '-leaf4').style.borderLeftWidth = '14px';
+        }
+        if (day === 10 && d.height > 16) {
+          $(prefix + '-flower').style.transform = 'translateX(-50%) scale(1)';
+        }
+
+        $(prefix + '-rain').classList.toggle('active', day % 2 === 0);
+      }
+
+      function resetPlant(prefix) {
+        $(prefix + '-stem').style.height = '4px';
+        $(prefix + '-leaf1').style.borderRightWidth = '0';
+        $(prefix + '-leaf2').style.borderLeftWidth = '0';
+        $(prefix + '-leaf3').style.borderRightWidth = '0';
+        $(prefix + '-leaf4').style.borderLeftWidth = '0';
+        $(prefix + '-flower').style.transform = 'translateX(-50%) scale(0)';
+        $(prefix + '-rain').classList.remove('active');
+        $(prefix + '-day').textContent = 'Day 0';
+        $(prefix + '-stats').textContent = 'Height: 0 cm | Leaves: 0';
+      }
+
+      // ---- State Persistence ----
+
+      /** Gather full lab state into a saveable object */
+      function gatherState() {
+        return {
+          currentPhase: currentPhase,
+          hypothesis: $('hypothesis').value,
+          variableChoice: $('variable-choice').value,
+          conditionsA: getConditions('a'),
+          conditionsB: getConditions('b'),
+          trialAData: trialA.data,
+          trialBData: trialB.data,
+          trialAConditions: trialA.conditions,
+          trialBConditions: trialB.conditions,
+          analysisPatterns: $('analysis-patterns').value,
+          analysisHypothesis: $('analysis-hypothesis').value,
+          analysisExplanation: $('analysis-explanation').value,
+          analysisConclusion: $('analysis-conclusion').value,
+          submitted: labSubmitted,
+          startTime: startTime
+        };
+      }
+
+      /** Restore lab UI from a saved state */
+      function restoreState(state) {
+        if (!state) return false;
+
+        var restored = false;
+
+        // Restore hypothesis
+        if (state.hypothesis) {
+          $('hypothesis').value = state.hypothesis;
+          restored = true;
+        }
+        if (state.variableChoice) {
+          $('variable-choice').value = state.variableChoice;
+        }
+
+        // Restore trial conditions
+        if (state.conditionsA) setConditions('a', state.conditionsA);
+        if (state.conditionsB) setConditions('b', state.conditionsB);
+
+        // Restore simulation data
+        if (state.trialAData && state.trialAData.length > 0) {
+          trialA.data = state.trialAData;
+          trialA.conditions = state.trialAConditions || state.conditionsA || {};
+        }
+        if (state.trialBData && state.trialBData.length > 0) {
+          trialB.data = state.trialBData;
+          trialB.conditions = state.trialBConditions || state.conditionsB || {};
+        }
+
+        // Restore analysis text
+        if (state.analysisPatterns) $('analysis-patterns').value = state.analysisPatterns;
+        if (state.analysisHypothesis) $('analysis-hypothesis').value = state.analysisHypothesis;
+        if (state.analysisExplanation) $('analysis-explanation').value = state.analysisExplanation;
+        if (state.analysisConclusion) $('analysis-conclusion').value = state.analysisConclusion;
+
+        // Restore start time
+        if (state.startTime) startTime = state.startTime;
+
+        // Restore submitted state
+        if (state.submitted) {
+          labSubmitted = true;
+        }
+
+        // Navigate to saved phase
+        if (state.currentPhase && state.currentPhase > 1) {
+          restored = true;
+
+          // If we're restoring to phase 4, 5, or 6, rebuild comparison data
+          if (state.currentPhase >= 4 && trialA.data.length > 0 && trialB.data.length > 0) {
+            // Go to the saved phase and rebuild comparison (needed for phase 4 and 5)
+            goPhaseNoSave(state.currentPhase);
+            if (state.currentPhase === 4 || state.currentPhase === 5) {
+              buildComparison();
+            }
+          } else if (state.currentPhase === 3) {
+            // If restoring to simulation, go to setup instead (simulation is ephemeral)
+            // But if we have data, go to compare
+            if (trialA.data.length > 0 && trialB.data.length > 0) {
+              goPhaseNoSave(4);
+              buildComparison();
+            } else {
+              goPhaseNoSave(2);
+            }
+          } else {
+            goPhaseNoSave(state.currentPhase);
+          }
+        }
+
+        return restored;
+      }
+
+      /** Go to phase without triggering auto-save (used during restore) */
+      function goPhaseNoSave(n) {
+        for (var i = 1; i <= TOTAL_PHASES; i++) {
+          $('phase-' + i).classList.toggle('active', i === n);
+          var step = $('step-' + i);
+          step.classList.remove('active', 'done');
+          if (i < n) step.classList.add('done');
+          else if (i === n) step.classList.add('active');
+        }
+        currentPhase = n;
+        Zest.setHeight(document.body.scrollHeight + 40);
+      }
+
+      /** Auto-save state */
+      function autoSave() {
+        if (!Zest.isReady()) return;
+        var state = gatherState();
+        Zest.saveState(state);
+      }
+
+      /** Debounced auto-save for text inputs */
+      var saveTimeout = null;
+      function debouncedAutoSave() {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(autoSave, 1000);
+      }
+
+      // Listen for text input changes -> debounced auto-save
+      ['hypothesis', 'analysis-patterns', 'analysis-hypothesis', 'analysis-explanation', 'analysis-conclusion'].forEach(function(id) {
+        $(id).addEventListener('input', debouncedAutoSave);
+      });
+
+      // Listen for select changes -> auto-save
+      ['variable-choice', 'a-sunlight', 'a-water', 'a-soil', 'a-temperature', 'b-sunlight', 'b-water', 'b-soil', 'b-temperature'].forEach(function(id) {
+        $(id).addEventListener('change', autoSave);
+      });
+
+      // ---- Sync Status Indicator ----
+      Zest.onSyncStatus(function(status) {
+        syncDot.className = 'sync-dot ' + status;
+        var labels = {
+          synced: 'Saved',
+          dirty: 'Unsaved changes',
+          syncing: 'Saving...',
+          error: 'Save failed'
+        };
+        syncText.textContent = labels[status] || status;
+      });
+
+      // ---- Reset / Start Over ----
+      var resetPending = false;
+      function doReset() {
+        // confirm() is blocked in cross-origin iframes (Canvas).
+        // Use a two-click pattern: first click shows warning, second click confirms.
+        if (!resetPending) {
+          resetPending = true;
+          // Change all reset button text to confirm
+          var allBtns = document.querySelectorAll('.btn-reset, .btn-reset-all');
+          for (var i = 0; i < allBtns.length; i++) {
+            allBtns[i].textContent = 'Click again to confirm reset';
+            allBtns[i].style.background = '#fdf0ef';
+            allBtns[i].style.borderColor = '#c0392b';
+            allBtns[i].style.color = '#c0392b';
+          }
+          // Auto-cancel after 4 seconds
+          setTimeout(function() {
+            resetPending = false;
+            for (var j = 0; j < allBtns.length; j++) {
+              allBtns[j].textContent = 'Start Over';
+              allBtns[j].style.background = '';
+              allBtns[j].style.borderColor = '';
+              allBtns[j].style.color = '';
+            }
+          }, 4000);
+          return;
+        }
+        resetPending = false;
+
+        // Clear all form fields
+        $('hypothesis').value = '';
+        $('variable-choice').value = 'sunlight';
+        $('analysis-patterns').value = '';
+        $('analysis-hypothesis').value = '';
+        $('analysis-explanation').value = '';
+        $('analysis-conclusion').value = '';
+
+        // Reset conditions to defaults
+        ['a-sunlight', 'b-sunlight'].forEach(function(id) { $(id).value = 'medium'; });
+        ['a-water', 'b-water'].forEach(function(id) { $(id).value = 'medium'; });
+        ['a-soil', 'b-soil'].forEach(function(id) { $(id).value = 'loam'; });
+        ['a-temperature', 'b-temperature'].forEach(function(id) { $(id).value = 'moderate'; });
+
+        // Reset simulation data
+        trialA = { data: [], conditions: {} };
+        trialB = { data: [], conditions: {} };
+        if (simInterval) { clearInterval(simInterval); simInterval = null; }
+        resetPlant('a');
+        resetPlant('b');
+
+        // Reset submit state
+        labSubmitted = false;
+        $('btn-submit').disabled = false;
+        $('btn-submit').textContent = 'Submit Lab Report';
+        $('result').className = 'result';
+        $('result').style.display = 'none';
+
+        // Hide restored banner
+        restoredBanner.classList.remove('visible');
+
+        // Reset start time
+        startTime = Date.now();
+
+        // Go back to phase 1
+        goPhaseNoSave(1);
+
+        // Clear saved state
+        Zest.clearState().then(function() {
+          // state cleared
+        });
+      }
+
+      resetBtn.addEventListener('click', doReset);
+      resetFinalBtn.addEventListener('click', doReset);
+
+      // Wire up all .btn-reset-all buttons (one per phase)
+      var allResetBtns = document.querySelectorAll('.btn-reset-all');
+      for (var ri = 0; ri < allResetBtns.length; ri++) {
+        allResetBtns[ri].addEventListener('click', doReset);
+      }
+
+      // ---- Init ----
+      Zest.onReady(function(ctx) {
+        if (ctx) {
+          $('user-info').innerHTML = '<strong>' + (ctx.name || 'Student') + '</strong> | ' +
+            (ctx.courseTitle || 'Course ' + ctx.courseId) + ' | ' +
+            (ctx.roles ? ctx.roles.join(', ') : '');
+        } else {
+          $('user-info').textContent = 'Running in standalone mode (no LTI context)';
+        }
+
+        // Show sync indicator and all reset buttons
+        syncStatusEl.style.display = 'flex';
+        resetBtn.style.display = 'inline-block';
+        for (var bi = 0; bi < allResetBtns.length; bi++) {
+          allResetBtns[bi].style.display = 'inline-block';
+        }
+
+        // Load saved state
+        Zest.loadState().then(function(state) {
+          if (state) {
+            var restored = restoreState(state);
+            if (restored) {
+              restoredBanner.classList.add('visible');
+            }
+          }
+        });
+      });
+
+      // ---- Navigation ----
+      $('btn-to-setup').addEventListener('click', function() {
+        if (!$('hypothesis').value.trim()) {
+          showInlineError($('hypothesis'), 'Please enter your hypothesis before continuing.');
+          return;
+        }
+        goPhase(2);
+      });
+      $('btn-back-hyp').addEventListener('click', function() { goPhase(1); });
+      $('btn-back-sim').addEventListener('click', function() { goPhase(3); runSim(); });
+      $('btn-back-compare').addEventListener('click', function() { goPhase(4); });
+      $('btn-to-analysis').addEventListener('click', function() { goPhase(5); });
+
+      // ---- Validate setup: warn if they changed more/fewer than 1 variable ----
+      function checkSetupDiffs() {
+        var a = getConditions('a');
+        var b = getConditions('b');
+        var diffs = [];
+        if (a.sunlight !== b.sunlight) diffs.push('sunlight');
+        if (a.water !== b.water) diffs.push('water');
+        if (a.soil !== b.soil) diffs.push('soil');
+        if (a.temperature !== b.temperature) diffs.push('temperature');
+
+        var warn = $('setup-warning');
+        if (diffs.length === 0) {
+          warn.style.display = 'block';
+          warn.textContent = 'Both trials are identical. Change one variable in Trial B to compare.';
+        } else if (diffs.length > 1) {
+          warn.style.display = 'block';
+          warn.textContent = 'You changed ' + diffs.length + ' variables (' + diffs.join(', ') + '). For a fair test, try changing only one.';
+        } else {
+          warn.style.display = 'none';
+        }
+      }
+      ['a-sunlight','a-water','a-soil','a-temperature','b-sunlight','b-water','b-soil','b-temperature'].forEach(function(id) {
+        $(id).addEventListener('change', checkSetupDiffs);
+      });
+
+      // ---- Run ----
+      $('btn-run').addEventListener('click', function() {
+        goPhase(3);
+        runSim();
+      });
+
+      function runSim() {
+        if (simInterval) clearInterval(simInterval);
+        $('btn-to-compare').disabled = true;
+
+        trialA.conditions = getConditions('a');
+        trialB.conditions = getConditions('b');
+
+        // Pre-compute all data
+        trialA.data = simulateTrial(trialA.conditions);
+        trialB.data = simulateTrial(trialB.conditions);
+
+        // Setup visuals
+        resetPlant('a');
+        resetPlant('b');
+        $('a-sun').className = 'sun ' + trialA.conditions.sunlight;
+        $('b-sun').className = 'sun ' + trialB.conditions.sunlight;
+        $('a-soil-label').textContent = trialA.conditions.soil.charAt(0).toUpperCase() + trialA.conditions.soil.slice(1);
+        $('b-soil-label').textContent = trialB.conditions.soil.charAt(0).toUpperCase() + trialB.conditions.soil.slice(1);
+        createRaindrops($('a-rain'), trialA.conditions.water);
+        createRaindrops($('b-rain'), trialB.conditions.water);
+
+        var day = 0;
+        $('sim-title').textContent = 'Simulating 10 Days...';
+
+        simInterval = setInterval(function() {
+          day++;
+          if (day > 10) {
+            clearInterval(simInterval);
+            simInterval = null;
+            $('btn-to-compare').disabled = false;
+            $('sim-title').textContent = 'Simulation Complete!';
+            // Save state after simulation completes (includes simulation data)
+            autoSave();
+            return;
+          }
+          animatePlant('a', trialA.data, day);
+          animatePlant('b', trialB.data, day);
+          Zest.setHeight(document.body.scrollHeight + 40);
+        }, 700);
+      }
+
+      // ---- Compare ----
+      $('btn-to-compare').addEventListener('click', function() {
+        goPhase(4);
+        buildComparison();
+      });
+
+      function buildComparison() {
+        // SVG Line Chart
+        var chartEl = $('compare-chart');
+        chartEl.innerHTML = '';
+
+        var points = trialA.data.length; // 11 points (day 0–10)
+        var maxH = 1;
+        for (var i = 0; i < points; i++) {
+          maxH = Math.max(maxH, trialA.data[i].height, trialB.data[i].height);
+        }
+        // Round max up to a nice number for the Y axis
+        var yMax = Math.ceil(maxH / 5) * 5;
+        if (yMax < 5) yMax = 5;
+
+        // Chart dimensions (SVG viewBox coordinates)
+        var W = 380, H = 160;
+        var pad = { top: 12, right: 16, bottom: 28, left: 36 };
+        var plotW = W - pad.left - pad.right;
+        var plotH = H - pad.top - pad.bottom;
+
+        function xPos(day) { return pad.left + (day / 10) * plotW; }
+        function yPos(val) { return pad.top + plotH - (val / yMax) * plotH; }
+
+        var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+
+        // Horizontal grid lines + Y axis labels
+        var gridSteps = 5;
+        for (var g = 0; g <= gridSteps; g++) {
+          var val = (yMax / gridSteps) * g;
+          var y = yPos(val);
+          svg += '<line x1="' + pad.left + '" y1="' + y + '" x2="' + (W - pad.right) + '" y2="' + y + '" class="chart-grid"/>';
+          svg += '<text x="' + (pad.left - 4) + '" y="' + (y + 3) + '" class="chart-y-label">' + Math.round(val) + '</text>';
+        }
+
+        // X axis labels
+        for (var d = 0; d <= 10; d++) {
+          var x = xPos(d);
+          svg += '<text x="' + x + '" y="' + (H - 6) + '" class="chart-axis-label" text-anchor="middle">D' + d + '</text>';
+        }
+
+        // Axes
+        svg += '<line x1="' + pad.left + '" y1="' + pad.top + '" x2="' + pad.left + '" y2="' + (pad.top + plotH) + '" class="chart-axis-line"/>';
+        svg += '<line x1="' + pad.left + '" y1="' + (pad.top + plotH) + '" x2="' + (W - pad.right) + '" y2="' + (pad.top + plotH) + '" class="chart-axis-line"/>';
+
+        // Build path strings
+        var pathA = '', pathB = '', areaA = '', areaB = '';
+        for (var i = 0; i < points; i++) {
+          var ax = xPos(i), ay = yPos(trialA.data[i].height);
+          var bx = xPos(i), by = yPos(trialB.data[i].height);
+          pathA += (i === 0 ? 'M' : 'L') + ax.toFixed(1) + ',' + ay.toFixed(1);
+          pathB += (i === 0 ? 'M' : 'L') + bx.toFixed(1) + ',' + by.toFixed(1);
+          areaA += (i === 0 ? 'M' : 'L') + ax.toFixed(1) + ',' + ay.toFixed(1);
+          areaB += (i === 0 ? 'M' : 'L') + bx.toFixed(1) + ',' + by.toFixed(1);
+        }
+        // Close area paths along the bottom
+        var baseline = yPos(0);
+        areaA += 'L' + xPos(points - 1).toFixed(1) + ',' + baseline + 'L' + xPos(0).toFixed(1) + ',' + baseline + 'Z';
+        areaB += 'L' + xPos(points - 1).toFixed(1) + ',' + baseline + 'L' + xPos(0).toFixed(1) + ',' + baseline + 'Z';
+
+        // Filled areas (subtle)
+        svg += '<path d="' + areaA + '" class="chart-area-a"/>';
+        svg += '<path d="' + areaB + '" class="chart-area-b"/>';
+
+        // Lines
+        svg += '<path d="' + pathA + '" class="chart-line chart-line-a"/>';
+        svg += '<path d="' + pathB + '" class="chart-line chart-line-b"/>';
+
+        // Data point dots
+        for (var i = 0; i < points; i++) {
+          svg += '<circle cx="' + xPos(i).toFixed(1) + '" cy="' + yPos(trialA.data[i].height).toFixed(1) + '" r="3" class="chart-dot chart-dot-a"/>';
+          svg += '<circle cx="' + xPos(i).toFixed(1) + '" cy="' + yPos(trialB.data[i].height).toFixed(1) + '" r="3" class="chart-dot chart-dot-b"/>';
+        }
+
+        // Y axis title
+        svg += '<text x="8" y="' + (pad.top + plotH / 2) + '" class="chart-axis-label" text-anchor="middle" transform="rotate(-90,8,' + (pad.top + plotH / 2) + ')">Height (cm)</text>';
+
+        svg += '</svg>';
+        chartEl.innerHTML = svg;
+
+        // Comparison table
+        var fa = trialA.data[10];
+        var fb = trialB.data[10];
+        var tbody = $('compare-body');
+        tbody.innerHTML = '';
+
+        var rows = [
+          ['Final Height', fa.height + ' cm', fb.height + ' cm', (fb.height - fa.height > 0 ? '+' : '') + (fb.height - fa.height).toFixed(1) + ' cm'],
+          ['Total Leaves', fa.leaves, fb.leaves, (fb.leaves - fa.leaves > 0 ? '+' : '') + (fb.leaves - fa.leaves)],
+          ['Final Health', fa.health, fb.health, ''],
+          ['Sunlight', condLabels.sunlight[trialA.conditions.sunlight], condLabels.sunlight[trialB.conditions.sunlight],
+            trialA.conditions.sunlight === trialB.conditions.sunlight ? 'Same' : 'Changed'],
+          ['Water', condLabels.water[trialA.conditions.water], condLabels.water[trialB.conditions.water],
+            trialA.conditions.water === trialB.conditions.water ? 'Same' : 'Changed'],
+          ['Soil', condLabels.soil[trialA.conditions.soil], condLabels.soil[trialB.conditions.soil],
+            trialA.conditions.soil === trialB.conditions.soil ? 'Same' : 'Changed'],
+          ['Temperature', condLabels.temperature[trialA.conditions.temperature], condLabels.temperature[trialB.conditions.temperature],
+            trialA.conditions.temperature === trialB.conditions.temperature ? 'Same' : 'Changed']
+        ];
+
+        for (var r = 0; r < rows.length; r++) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + rows[r][0] + '</td><td class="col-a">' + rows[r][1] + '</td><td class="col-b">' + rows[r][2] + '</td><td>' + rows[r][3] + '</td>';
+          tbody.appendChild(tr);
+        }
+      }
+
+      // ---- Submit ----
+      $('btn-submit').addEventListener('click', function() {
+        if (labSubmitted) return;
+
+        var patterns = $('analysis-patterns').value.trim();
+        var hypResult = $('analysis-hypothesis').value.trim();
+        var explanation = $('analysis-explanation').value.trim();
+        var conclusion = $('analysis-conclusion').value.trim();
+
+        if (!patterns || !hypResult || !explanation || !conclusion) {
+          var firstEmpty = [$('analysis-patterns'), $('analysis-hypothesis'), $('analysis-explanation'), $('analysis-conclusion')]
+            .filter(function(el) { return !el.value.trim(); })[0];
+          showInlineError(firstEmpty, 'Please answer all analysis questions before submitting.');
+          return;
+        }
+
+        labSubmitted = true;
+        $('btn-submit').disabled = true;
+        $('btn-submit').textContent = 'Submitting...';
+
+        var fa = trialA.data[10] || {};
+        var fb = trialB.data[10] || {};
+
+        var artifacts = {
+          hypothesis: $('hypothesis').value.trim(),
+          independentVariable: $('variable-choice').value,
+          trialA: {
+            conditions: trialA.conditions,
+            growthData: trialA.data,
+            finalHeight: fa.height || 0,
+            finalLeaves: fa.leaves || 0,
+            finalHealth: fa.health || 'Unknown'
+          },
+          trialB: {
+            conditions: trialB.conditions,
+            growthData: trialB.data,
+            finalHeight: fb.height || 0,
+            finalLeaves: fb.leaves || 0,
+            finalHealth: fb.health || 'Unknown'
+          },
+          analysis: {
+            patterns: patterns,
+            hypothesisResult: hypResult,
+            explanation: explanation,
+            conclusion: conclusion
+          },
+          timeSpentMs: Date.now() - startTime
+        };
+
+        // Save submitted state
+        autoSave();
+
+        Zest.submitWork({
+          artifacts: artifacts,
+          comment: 'Plant Growth Lab: A=' + fa.height + 'cm (' + trialA.conditions.sunlight + ' sun) vs B=' + fb.height + 'cm (' + trialB.conditions.sunlight + ' sun)'
+        }).then(function(result) {
+          if (result.success) {
+            goPhase(6);
+            $('final-msg').textContent =
+              'Your lab report has been submitted. Your teacher will review and grade it in SpeedGrader.';
+            autoSave();
+          } else {
+            $('result').className = 'result error';
+            $('result').textContent = 'Submission failed: ' + (result.error || 'Unknown error');
+            labSubmitted = false;
+            $('btn-submit').disabled = false;
+            $('btn-submit').textContent = 'Retry Submit';
+            autoSave();
+          }
+        }).catch(function(err) {
+          $('result').className = 'result error';
+          $('result').textContent = 'Error: ' + err.message;
+          labSubmitted = false;
+          $('btn-submit').disabled = false;
+          $('btn-submit').textContent = 'Retry Submit';
+          autoSave();
+        });
+      });
+
+      Zest.setHeight(document.body.scrollHeight + 40);
+    })();
+  </script>
+</body>
+</html>
