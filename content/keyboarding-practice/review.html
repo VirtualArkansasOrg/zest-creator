@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Typing Practice – Teacher Review</title>
+  <style>
+    :root {
+      --white: #ffffff;
+      --cardinal: #960000;
+      --near-black: #131313;
+      --warm-gray: #605f5e;
+      --sky: #25aefa;
+      --navy: #1b3168;
+      --surface: #ffffff;
+      --border: #d8dde8;
+      --success: #147a3f;
+      --danger: #960000;
+      --shadow: 0 8px 20px rgba(19,19,19,0.07);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: Arial, Helvetica, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      background: #f7f8fb;
+      color: var(--near-black);
+      font-family: var(--font);
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    /* Header */
+    .header {
+      padding: 18px 22px;
+      background: linear-gradient(135deg, var(--navy), var(--cardinal));
+      color: var(--white);
+      display: grid;
+      gap: 4px;
+    }
+
+    .header h1 { margin: 0; font-size: 1.25rem; }
+    .header p  { margin: 0; font-size: 0.88rem; opacity: 0.9; }
+
+    /* Score banner */
+    .score-banner {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .score-circle {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--navy), var(--cardinal));
+      color: var(--white);
+      flex-shrink: 0;
+    }
+
+    .score-circle .pct  { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .score-circle .lbl  { font-size: 0.7rem; opacity: 0.9; margin-top: 2px; }
+
+    .score-details h2 { margin: 0 0 4px; font-size: 1.1rem; color: var(--navy); }
+    .score-details p  { margin: 0; font-size: 0.9rem; color: var(--warm-gray); line-height: 1.5; }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+
+    .stat-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .stat-item .s-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--warm-gray);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .stat-item .s-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--navy);
+      display: block;
+    }
+
+    .stat-item .s-target {
+      font-size: 0.78rem;
+      margin-top: 3px;
+      display: block;
+      color: var(--warm-gray);
+    }
+
+    .stat-item.met    .s-value { color: var(--success); }
+    .stat-item.missed .s-value { color: var(--cardinal); }
+    .s-target.met    { color: var(--success); }
+    .s-target.missed { color: var(--cardinal); }
+
+    /* Raw JSON */
+    .raw-section { padding: 16px 20px 20px; }
+    .raw-section h2 { margin: 0 0 10px; font-size: 0.95rem; color: var(--navy); font-weight: 700; }
+
+    pre {
+      margin: 0;
+      background: #f3f5fb;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Passage */
+    .passage-section { padding: 16px 20px 20px; }
+    .passage-section h2 { margin: 0 0 10px; font-size: 0.95rem; color: var(--navy); font-weight: 700; }
+    .passage-text {
+      background: #fbfcfe;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      color: #555;
+    }
+
+    /* Empty / loading states */
+    .empty {
+      padding: 36px;
+      text-align: center;
+      color: var(--warm-gray);
+    }
+
+    @media (max-width: 560px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page" id="page">
+    <div class="card header">
+      <h1>Keyboarding Practice — Teacher Review</h1>
+      <p>Student submission details for SpeedGrader</p>
+    </div>
+
+    <div class="card" id="main-card">
+      <div class="empty" id="loading">Loading submission…</div>
+    </div>
+  </div>
+
+  <script src="/public/zest-bridge.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const TARGET_WPM = 30;
+    const TARGET_ACC = 95;
+
+    const TARGET_TEXT =
+`We are on a fun trip to a big lake, and we all feel glad to go.
+The sun is up, and the air is warm as we pack up our bags.
+Dad has a map, and Mom has a plan, and we all hop in the van.
+
+We ride on a long road, and we see red barns and green trees.
+A fox runs by, and we all look and laugh at the fast red fox!
+The van hums on, and we sing a song as we go along.
+
+At the lake, we jump out and run to the dock by the water.
+The sand is soft, and the waves are slow and calm on the shore.
+We toss a ball, and we skip rocks, and we splash in the cool lake.
+
+You can sit in the sun, or run and play with a pal.
+We all feel glad and free and full of fun at the lake.
+As the day ends, we pack up slow and head back home again.
+
+It was a good day, and we all cannot wait to go again!`;
+
+    const card = document.getElementById('main-card');
+
+    function fmt(label, value, target, met) {
+      return `
+        <div class="stat-item ${met === undefined ? '' : met ? 'met' : 'missed'}">
+          <span class="s-label">${label}</span>
+          <span class="s-value">${value}</span>
+          ${target !== undefined
+            ? `<span class="s-target ${met === undefined ? '' : met ? 'met' : 'missed'}">
+                ${met ? `✓ Target met (${target})` : `✗ Target: ${target}`}
+               </span>`
+            : ''}
+        </div>`;
+    }
+
+    function fmtTime(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    // 3.1.0 sent the stats only as the comment text:
+    // "WPM: 32 | Accuracy: 96% | Time: 45s | Errors: 2 | Keys typed: 48 | Completion: 100%"
+    function parseComment(comment) {
+      if (typeof comment !== 'string') return null;
+      const num = (label) => {
+        const m = comment.match(new RegExp(label + ':\\s*(\\d+(?:\\.\\d+)?)', 'i'));
+        return m ? Number(m[1]) : undefined;
+      };
+      const wpm = num('WPM');
+      const accuracy = num('Accuracy');
+      if (wpm === undefined && accuracy === undefined) return null;
+      return {
+        wpm: wpm || 0, accuracy: accuracy || 0, durationSeconds: num('Time') || 0,
+        errors: num('Errors') || 0, keysTyped: num('Keys typed') || 0, completionPct: num('Completion'),
+        recoveredFromComment: true
+      };
+    }
+
+    function init() {
+      try {
+        // The wrapper hands the submission to the bridge before onReady fires.
+        const submission = window.Zest ? Zest.getSubmission() : null;
+
+        if (!submission) {
+          card.innerHTML = '<div class="empty">No submission found for this student.</div>';
+          return;
+        }
+
+        // 3.1.1 sends the stats as artifacts; 3.1.0 only put them in the comment.
+        const stats = submission.artifacts || parseComment(submission.comment) || {};
+        const { wpm = 0, accuracy = 0, durationSeconds = 0, errors = 0, keysTyped = 0 } = stats;
+
+        // The score is the one index.html computed and sent to the gradebook.
+        const score = typeof submission.score === 'number' ? Math.round(submission.score) : null;
+        const wpmMet    = wpm >= TARGET_WPM;
+        const accMet    = accuracy >= TARGET_ACC;
+
+        card.innerHTML = `
+          <div class="score-banner">
+            <div class="score-circle">
+              <span class="pct">${score === null ? '–' : score + '%'}</span>
+              <span class="lbl">Score</span>
+            </div>
+            <div class="score-details">
+              <h2>Submission Results</h2>
+              <p>
+                WPM target: <strong>${TARGET_WPM}</strong> &nbsp;|&nbsp;
+                Accuracy target: <strong>${TARGET_ACC}%</strong>
+              </p>
+              <p>Score = (65% accuracy + 35% speed toward ${TARGET_WPM} WPM) &times; accuracy, as sent to the gradebook</p>
+              ${stats.recoveredFromComment ? '<p>Details recovered from the submission comment (submitted with package 3.1.0).</p>' : ''}
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            ${fmt('WPM',        `${wpm} WPM`,         `${TARGET_WPM} WPM`,  wpmMet)}
+            ${fmt('Accuracy',   `${accuracy}%`,        `${TARGET_ACC}%`,     accMet)}
+            ${fmt('Time',       fmtTime(durationSeconds))}
+            ${fmt('Errors',     String(errors))}
+            ${fmt('Keys Typed', String(keysTyped))}
+            ${fmt('Score',      score === null ? '–' : `${score}%`)}
+          </div>
+
+          <div class="raw-section">
+            <h2>Raw submission data</h2>
+            <pre>${JSON.stringify(stats, null, 2)}</pre>
+          </div>
+
+          <div class="passage-section">
+            <h2>Passage (${TARGET_TEXT.length} characters)</h2>
+            <div class="passage-text">${TARGET_TEXT}</div>
+          </div>
+        `;
+
+      } catch (e) {
+        card.innerHTML = `<div class="empty">Error loading submission: ${e.message}</div>`;
+      }
+    }
+
+    function bootstrap() {
+      if (window.Zest && typeof Zest.onReady === 'function') {
+        Zest.onReady(init);
+      } else {
+        init();
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+  })();
+  </script>
+</body>
+</html>

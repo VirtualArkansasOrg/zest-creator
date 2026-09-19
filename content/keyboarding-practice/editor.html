@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Assessment Editor — Keyboarding Practice</title>
+  <style>
+    :root {
+      --ink: #0F172A;
+      --mute: #64748B;
+      --line: #E2E8F0;
+      --line-strong: #CBD5E1;
+      --surface: #FFFFFF;
+      --canvas: #F8FAFC;
+      --accent: #C2410C;
+      --accent-soft: #FFF7ED;
+      --success: #166534;
+      --success-soft: #DCFCE7;
+      --danger: #991B1B;
+      --danger-soft: #FEE2E2;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --pad: 24px;
+      --gap: 16px;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, "SFMono-Regular", Menlo, "Roboto Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    header.page-header {
+      margin-bottom: 28px;
+    }
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin: 0 0 6px;
+    }
+    h1.page-title {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .page-intro {
+      margin: 0;
+      color: var(--mute);
+      max-width: 56ch;
+    }
+    section.panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: var(--pad);
+      margin-bottom: var(--gap);
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field + .field { margin-top: 22px; }
+    .field label {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .field .hint {
+      font-size: 13px;
+      color: var(--mute);
+      margin: 0;
+    }
+    .input, .textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      font: inherit;
+      color: var(--ink);
+      background: var(--surface);
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .textarea {
+      min-height: 240px;
+      line-height: 1.6;
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      resize: vertical;
+    }
+    .input:focus, .textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.18);
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 13px;
+      color: var(--mute);
+      margin-top: 4px;
+    }
+    .meta strong {
+      color: var(--ink);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      cursor: pointer;
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font: inherit;
+      font-weight: 600;
+      font-size: 14px;
+      min-height: 40px;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn--primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn--primary:hover:not(:disabled) { background: #9A3412; }
+    .btn--secondary {
+      background: var(--surface);
+      color: var(--ink);
+      border-color: var(--line-strong);
+    }
+    .btn--secondary:hover:not(:disabled) { background: var(--canvas); }
+    .btn--ghost {
+      background: transparent;
+      color: var(--danger);
+      border-color: transparent;
+    }
+    .btn--ghost:hover:not(:disabled) { background: var(--danger-soft); }
+    .status {
+      font-size: 13px;
+      flex: 1;
+      min-width: 200px;
+      color: var(--mute);
+    }
+    .status[data-state="saving"] { color: var(--ink); }
+    .status[data-state="saved"]  { color: var(--success); font-weight: 600; }
+    .status[data-state="error"]  { color: var(--danger); font-weight: 600; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+      background: var(--canvas);
+      color: var(--mute);
+    }
+    .pill[data-source="override"]  { background: var(--success-soft); color: var(--success); border-color: transparent; }
+    .pill[data-source="default"]   { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+    .preview {
+      background: var(--canvas);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 13.5px;
+      line-height: 1.7;
+      font-family: var(--font-mono);
+      white-space: pre-wrap;
+      max-height: 180px;
+      overflow-y: auto;
+      color: var(--ink);
+    }
+    .preview-empty { color: var(--mute); font-style: italic; font-family: var(--font-sans); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <p class="eyebrow">Keyboarding · Editor</p>
+      <h1 class="page-title">Customize this practice</h1>
+      <p class="page-intro">
+        Changes apply to every assignment that embeds this zest. To set a different
+        passage for a different assignment, duplicate the zest in the picker and
+        edit each copy.
+      </p>
+    </header>
+
+    <section class="panel">
+      <div class="field">
+        <label for="title">
+          Lesson title
+          <span class="pill" id="source-pill" data-source="none">no config</span>
+        </label>
+        <input type="text" class="input" id="title" placeholder="e.g. Lake Trip, Home-row drills" />
+        <p class="hint">Optional. Appended after "Keyboarding Practice —" in the student header. Leave blank for none.</p>
+      </div>
+
+      <div class="field">
+        <label for="passage">Typing passage</label>
+        <textarea
+          class="textarea"
+          id="passage"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          placeholder="Write or paste the passage students will type…"
+        ></textarea>
+        <div class="meta">
+          <span><strong id="char-count">0</strong> characters</span>
+          <span><strong id="word-count">0</strong> words</span>
+          <span><strong id="line-count">0</strong> lines</span>
+        </div>
+        <p class="hint">Line breaks are preserved. Students must type the passage exactly, including spaces and punctuation.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="field">
+        <label>Preview</label>
+        <div class="preview" id="preview"></div>
+      </div>
+    </section>
+
+    <div class="panel actions">
+      <button class="btn btn--primary" id="btn-save" type="button">Save changes</button>
+      <button class="btn btn--secondary" id="btn-reload" type="button">Reload</button>
+      <button class="btn btn--ghost" id="btn-reset" type="button">Reset to default</button>
+      <span class="status" id="status">Loading current configuration…</span>
+    </div>
+  </div>
+
+  <script src="/public/zest-bridge.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const DEFAULT_CONFIG = { version: '1.0', title: '', passage: '' };
+
+    const elTitle = document.getElementById('title');
+    const elPassage = document.getElementById('passage');
+    const elCharCount = document.getElementById('char-count');
+    const elWordCount = document.getElementById('word-count');
+    const elLineCount = document.getElementById('line-count');
+    const elPreview = document.getElementById('preview');
+    const elBtnSave = document.getElementById('btn-save');
+    const elBtnReload = document.getElementById('btn-reload');
+    const elBtnReset = document.getElementById('btn-reset');
+    const elStatus = document.getElementById('status');
+    const elSourcePill = document.getElementById('source-pill');
+
+    let resetTimer = null;
+
+    function setStatus(text, state) {
+      elStatus.textContent = text;
+      if (state) elStatus.dataset.state = state;
+      else elStatus.removeAttribute('data-state');
+    }
+
+    function updateSourcePill(source) {
+      const labels = {
+        database: 'customized',
+        override: 'customized',
+        'content-default': 'customized',
+        default: 'default',
+        none: 'no config'
+      };
+      const cssSource = (source === 'database' || source === 'content-default') ? 'override' : (source || 'none');
+      elSourcePill.textContent = labels[source] || labels.none;
+      elSourcePill.dataset.source = cssSource;
+    }
+
+    function configFromForm() {
+      return {
+        version: '1.0',
+        title: elTitle.value.trim(),
+        passage: elPassage.value
+      };
+    }
+
+    function fillForm(cfg) {
+      cfg = cfg || DEFAULT_CONFIG;
+      elTitle.value = cfg.title || '';
+      elPassage.value = cfg.passage || '';
+      updateCounts();
+      updatePreview();
+    }
+
+    function updateCounts() {
+      const text = elPassage.value;
+      elCharCount.textContent = text.length;
+      elWordCount.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+      elLineCount.textContent = text ? text.split('\n').length : 0;
+    }
+
+    function updatePreview() {
+      const text = elPassage.value;
+      if (!text.trim()) {
+        elPreview.innerHTML = '<span class="preview-empty">No passage yet. Write or paste above.</span>';
+      } else {
+        elPreview.textContent = text;
+      }
+    }
+
+    function markDirty() {
+      setStatus('Unsaved changes — click Save to apply.');
+    }
+
+    elPassage.addEventListener('input', () => { updateCounts(); updatePreview(); markDirty(); });
+    elTitle.addEventListener('input', markDirty);
+
+    async function loadConfig() {
+      setStatus('Loading…', 'saving');
+      if (!window.Zest) {
+        fillForm(DEFAULT_CONFIG);
+        updateSourcePill('none');
+        setStatus('Zest bridge unavailable — showing defaults.', 'error');
+        return;
+      }
+      try {
+        const res = await Zest.getConfig();
+        if (res && res.success) {
+          fillForm(res.config || DEFAULT_CONFIG);
+          updateSourcePill(res.source || 'none');
+          if (res.source === 'database' || res.source === 'override' || res.source === 'content-default') {
+            setStatus('Loaded the saved configuration for this zest.', 'saved');
+          } else if (res.source === 'default') {
+            setStatus('No customization yet. Showing the default passage from the zip.');
+          } else {
+            setStatus('No saved configuration. Edit the fields and click Save.');
+          }
+        } else {
+          fillForm(DEFAULT_CONFIG);
+          updateSourcePill('none');
+          setStatus((res && res.error) || 'Failed to load configuration.', 'error');
+        }
+      } catch (err) {
+        fillForm(DEFAULT_CONFIG);
+        updateSourcePill('none');
+        setStatus('Network error: ' + err.message, 'error');
+      }
+    }
+
+    elBtnSave.addEventListener('click', async () => {
+      const cfg = configFromForm();
+      if (!cfg.passage.trim()) {
+        setStatus('The typing passage cannot be empty.', 'error');
+        elPassage.focus();
+        return;
+      }
+      elBtnSave.disabled = true;
+      setStatus('Saving…', 'saving');
+      if (!window.Zest) {
+        elBtnSave.disabled = false;
+        setStatus('Zest bridge unavailable.', 'error');
+        return;
+      }
+      try {
+        const res = await Zest.saveConfig(cfg);
+        if (res && res.success) {
+          setStatus('Saved. The new passage applies to every assignment that uses this zest.', 'saved');
+          updateSourcePill('database');
+        } else {
+          setStatus((res && res.error) || 'Save failed.', 'error');
+        }
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'error');
+      } finally {
+        elBtnSave.disabled = false;
+      }
+    });
+
+    elBtnReload.addEventListener('click', loadConfig);
+
+    elBtnReset.addEventListener('click', async () => {
+      if (!resetTimer) {
+        elBtnReset.textContent = 'Click again to discard';
+        elBtnReset.style.background = 'var(--danger-soft)';
+        resetTimer = setTimeout(() => {
+          elBtnReset.textContent = 'Reset to default';
+          elBtnReset.style.background = '';
+          resetTimer = null;
+        }, 4000);
+        setStatus('Click Reset again within 4 seconds to discard your customization.');
+        return;
+      }
+      clearTimeout(resetTimer);
+      resetTimer = null;
+      elBtnReset.textContent = 'Reset to default';
+      elBtnReset.style.background = '';
+      elBtnReset.disabled = true;
+      setStatus('Discarding customization…', 'saving');
+      if (!window.Zest) {
+        elBtnReset.disabled = false;
+        setStatus('Zest bridge unavailable.', 'error');
+        return;
+      }
+      try {
+        const res = await Zest.deleteConfig();
+        if (res && res.success) {
+          await loadConfig();
+          setStatus('Customization discarded. Showing the default passage from the zip.', 'saved');
+        } else {
+          setStatus((res && res.error) || 'Reset failed.', 'error');
+        }
+      } catch (err) {
+        setStatus('Network error: ' + err.message, 'error');
+      } finally {
+        elBtnReset.disabled = false;
+      }
+    });
+
+    if (window.Zest) {
+      Zest.onReady(loadConfig);
+    } else {
+      window.addEventListener('load', () => {
+        if (window.Zest) Zest.onReady(loadConfig);
+        else loadConfig();
+      });
+    }
+  })();
+  </script>
+</body>
+</html>

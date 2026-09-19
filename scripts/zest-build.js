@@ -149,7 +149,8 @@ function validate(dir, config) {
       const n = (code.match(re) || []).length;
       if (n) warn(`${name}.html calls ${fn}() ${n} time(s); Canvas blocks it inside the iframe. Use an in-page message or the two-click pattern.`);
     }
-    if (name === 'index' && /\bZest\./.test(text) && !/Zest\.onReady\s*\(/.test(text)) warn('index.html uses Zest.* without Zest.onReady(); context may not be available yet');
+    if (/\bZest\./.test(text) && !/Zest\.onReady\s*\(/.test(text)) warn(`${name}.html uses Zest.* without Zest.onReady(); the context, config and submission are not available before it fires`);
+    if (/Zest\.submit(?:Score|Work)\s*\([\s\S]{0,400}?\bsubmission\s*:/.test(text)) warn(`${name}.html passes "submission" to Zest.submitScore/submitWork; the bridge forwards only artifacts and comment, so the data never reaches the server (use artifacts)`);
     const external = [...text.matchAll(/(?:src|href)=["'](https?:\/\/[^"']+)["']/gi)].map(x => x[1]).filter(u => !u.includes('zest-bridge.js'));
     if (external.length) note(`${name}.html references external URLs: ${[...new Set(external.map(u => new URL(u).host))].join(', ')} (allowed by default; a server with a domain allowlist must include them)`);
   }

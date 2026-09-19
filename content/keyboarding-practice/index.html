@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Keyboarding Practice</title>
+  <style>
+    :root {
+      --ink: #0F172A;
+      --ink-soft: #334155;
+      --mute: #64748B;
+      --mute-soft: #94A3B8;
+      --line: #E2E8F0;
+      --line-strong: #CBD5E1;
+      --surface: #FFFFFF;
+      --canvas: #F8FAFC;
+      --pending: #94A3B8;
+      --current-bg: #FEF3C7;
+      --current-line: #F59E0B;
+      --correct: #166534;
+      --incorrect-bg: #FEE2E2;
+      --incorrect-text: #991B1B;
+      --accent: #C2410C;
+      --accent-hover: #9A3412;
+      --accent-soft: #FFF7ED;
+      --success: #166534;
+      --success-soft: #DCFCE7;
+      --danger: #991B1B;
+      --danger-soft: #FEE2E2;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --pad: 20px;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, "SFMono-Regular", Menlo, "Roboto Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    body { overflow: hidden; }
+
+    /* App container fills the iframe viewport with a flex column. Header,
+       stats, and progress rows take their natural height; the work area
+       (target + input) grows to consume the remainder. On very short
+       iframes the min-height floor kicks in and the page scrolls instead,
+       so the experience degrades gracefully rather than collapsing. */
+    .app {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: 100dvh;
+      min-height: 420px;
+      overflow: hidden;
+    }
+    .head, .stats, .progress-row { flex-shrink: 0; }
+
+    /* Header — title + restart, single line, no decoration */
+    header.head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .head h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .head h1 .lesson {
+      color: var(--mute);
+      font-weight: 500;
+    }
+    .head .head-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Stats strip — minimal, ride above the work area */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .stat {
+      background: var(--surface);
+      padding: 14px 16px;
+    }
+    .stat__label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin: 0 0 4px;
+    }
+    .stat__value {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      margin: 0;
+    }
+    .stat__hint {
+      font-size: 12px;
+      color: var(--mute);
+      margin: 4px 0 0;
+    }
+
+    /* Work area — target text + input side-by-side. Grows to fill the
+       remaining viewport height inside the flex column. Each pane is also
+       a flex column so its label sits above a flexible content region. */
+    .work {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      flex: 1 1 auto;
+      min-height: 0;          /* CRITICAL: lets the flex child shrink below content size */
+    }
+    .work__pane {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .work__pane + .work__pane {
+      border-left: 1px solid var(--line);
+    }
+    .work__label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .work__lock-note {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mute-soft);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    /* Target text — passage to type, copy/select blocked. Fills the
+       remaining height of its pane; scrolls internally for long passages. */
+    .target {
+      font-family: var(--font-mono);
+      font-size: var(--typing-font-size, 16px);
+      line-height: 1.85;
+      letter-spacing: 0.01em;
+      white-space: pre-wrap;
+      word-break: break-word;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+      color: var(--pending);
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      cursor: default;
+    }
+    .target .char--pending { color: var(--pending); }
+    .target .char--current {
+      background: var(--current-bg);
+      box-shadow: inset 0 -2px 0 0 var(--current-line);
+      border-radius: 1px;
+    }
+    .target .char--correct { color: var(--correct); }
+    .target .char--incorrect {
+      color: var(--incorrect-text);
+      background: var(--incorrect-bg);
+      border-radius: 2px;
+    }
+
+    /* Newline indicator — disambiguates real line breaks from visual wrap.
+       The character itself is still `\n` (so white-space: pre-wrap renders
+       the break), but ::before prepends a visible return symbol. State
+       classes color the ↵ to match the surrounding text. */
+    .target .char--newline::before {
+      content: '↵';
+      font-family: var(--font-sans);
+      font-size: 0.85em;
+      margin-right: 1px;
+      opacity: 0.55;
+    }
+    .target .char--newline.char--pending::before   { color: var(--mute-soft); }
+    .target .char--newline.char--current::before   { color: var(--current-line); opacity: 1; }
+    .target .char--newline.char--correct::before   { color: var(--correct); }
+    .target .char--newline.char--incorrect::before { color: var(--incorrect-text); opacity: 1; }
+
+    /* Input — textarea, paste blocked. Flex-grows like the target pane;
+       scrolls internally as the student fills it. */
+    .input {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      border: 0;
+      padding: 0;
+      font-family: var(--font-mono);
+      font-size: var(--typing-font-size, 16px);
+      line-height: 1.85;
+      letter-spacing: 0.01em;
+      color: var(--ink);
+      background: transparent;
+      resize: none;
+      outline: none;
+    }
+    .input::placeholder { color: var(--mute-soft); font-family: var(--font-sans); }
+
+    /* Progress + action row */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+    }
+    .progress {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .progress__bar {
+      flex: 1;
+      height: 6px;
+      background: var(--line);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress__fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+    .progress__label {
+      font-size: 13px;
+      color: var(--mute);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .progress__label strong { color: var(--ink); font-weight: 600; }
+
+    /* Buttons — single accent, ink secondary */
+    .btn {
+      cursor: pointer;
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font: inherit;
+      font-weight: 600;
+      font-size: 14px;
+      min-height: 38px;
+      transition: background 0.1s, border-color 0.1s, color 0.1s, opacity 0.1s;
+      white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn--primary { background: var(--accent); color: #fff; }
+    .btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn--secondary {
+      background: var(--surface);
+      color: var(--ink);
+      border-color: var(--line-strong);
+    }
+    .btn--secondary:hover:not(:disabled) { background: var(--canvas); }
+    .btn--success { background: var(--success); color: #fff; }
+    .btn--success:hover:not(:disabled) { background: #14532D; }
+
+    /* Icon-only button — used for the fullscreen toggle. Inherits secondary
+       styling but with square dimensions and centered icon. */
+    .btn--icon {
+      padding: 0;
+      width: 38px;
+      min-width: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-soft);
+    }
+    .btn--icon:hover:not(:disabled) { color: var(--ink); }
+    .btn--icon svg {
+      display: block;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Compact text button — for the A−/A+ font-size controls. Tight padding
+       and bold "A" labels so the buttons read as a paired control group. */
+    .btn--compact {
+      padding: 0 10px;
+      min-width: 38px;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0;
+      color: var(--ink-soft);
+    }
+    .btn--compact:hover:not(:disabled) { color: var(--ink); }
+
+    /* Visually couples the A−/A+ buttons so they read as one control. */
+    .font-control {
+      display: inline-flex;
+      gap: 0;
+    }
+    .font-control .btn--compact:first-child {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      border-right-width: 0;
+    }
+    .font-control .btn--compact:last-child {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    /* Status pill — replaces session controls bar */
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--canvas);
+      color: var(--mute);
+      border: 1px solid var(--line);
+    }
+    .state-pill[data-state="running"] {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: transparent;
+    }
+    .state-pill[data-state="complete"] {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: transparent;
+    }
+    .state-pill[data-state="submitted"] {
+      background: var(--success);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    /* Results modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.show { display: flex; }
+    .modal__card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      max-width: 460px;
+      width: 100%;
+      padding: 28px;
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+    }
+    .modal__title {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .modal__sub {
+      margin: 0 0 24px;
+      color: var(--mute);
+      font-size: 14px;
+    }
+    .score-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+    .score-row__value {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .score-row__label {
+      font-size: 13px;
+      color: var(--mute);
+    }
+    .breakdown {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 24px;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    .breakdown__item dt {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin: 0 0 2px;
+      font-weight: 600;
+    }
+    .breakdown__item dd {
+      margin: 0;
+      font-weight: 600;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .modal__actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .modal__note {
+      font-size: 13px;
+      color: var(--mute);
+      margin: 0 0 16px;
+    }
+
+    /* SR-only utility */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0;
+      margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 760px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .work { grid-template-columns: 1fr; }
+      .work__pane + .work__pane {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+
+    <header class="head">
+      <h1 id="lesson-title">Keyboarding Practice</h1>
+      <div class="head-actions">
+        <span class="state-pill" id="state-pill" data-state="idle">Ready</span>
+        <!-- Font size controls — accessibility accommodation. Steps through
+             a fixed scale and persists the choice in localStorage. -->
+        <div class="font-control" role="group" aria-label="Adjust text size">
+          <button class="btn btn--secondary btn--compact"
+                  id="btn-font-smaller"
+                  type="button"
+                  aria-label="Smaller text"
+                  title="Smaller text">A−</button>
+          <button class="btn btn--secondary btn--compact"
+                  id="btn-font-larger"
+                  type="button"
+                  aria-label="Larger text"
+                  title="Larger text">A+</button>
+        </div>
+        <button
+          class="btn btn--secondary btn--icon"
+          id="btn-fullscreen"
+          type="button"
+          aria-label="Enter distraction-free fullscreen"
+          title="Distraction-free fullscreen">
+          <!-- Enter-fullscreen icon: four corner brackets pointing outward -->
+          <svg id="icon-fs-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 3 3 3 3 9"></polyline>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <polyline points="15 21 21 21 21 15"></polyline>
+          </svg>
+          <!-- Exit-fullscreen icon: four corner brackets pointing inward.
+               Hidden by default, swapped in via JS when fullscreen is active. -->
+          <svg id="icon-fs-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none;">
+            <polyline points="3 9 9 9 9 3"></polyline>
+            <polyline points="21 9 15 9 15 3"></polyline>
+            <polyline points="3 15 9 15 9 21"></polyline>
+            <polyline points="21 15 15 15 15 21"></polyline>
+          </svg>
+        </button>
+        <button class="btn btn--secondary" id="btn-restart" type="button">Restart</button>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Typing statistics">
+      <div class="stat">
+        <p class="stat__label">Time</p>
+        <p class="stat__value" id="stat-time">0:00</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">WPM</p>
+        <p class="stat__value" id="stat-wpm">—</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Accuracy</p>
+        <p class="stat__value" id="stat-accuracy">—</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Progress</p>
+        <p class="stat__value" id="stat-progress">0%</p>
+      </div>
+    </section>
+
+    <section class="work" aria-label="Typing workspace">
+      <div class="work__pane">
+        <p class="work__label">
+          Target text
+          <span class="work__lock-note" aria-hidden="true">(read only)</span>
+        </p>
+        <!--
+          aria-readonly + role=group + aria-label make this region available to
+          screen readers as a labeled block of text. We block copy/select for
+          sighted users (CSS user-select + JS copy/cut/contextmenu handlers)
+          but the DOM content stays intact so assistive tech can read it.
+        -->
+        <div
+          class="target"
+          id="text-display"
+          role="group"
+          aria-label="Text to type. This text is read-only and cannot be copied."
+          aria-readonly="true"
+          tabindex="0"
+        ></div>
+      </div>
+      <div class="work__pane">
+        <p class="work__label">Your typing</p>
+        <label class="sr-only" for="typing-input">Type the lesson passage here. Paste is disabled.</label>
+        <textarea
+          class="input"
+          id="typing-input"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          autocorrect="off"
+          placeholder="Start typing to begin…"
+        ></textarea>
+      </div>
+    </section>
+
+    <section class="progress-row" aria-label="Submission controls">
+      <div class="progress">
+        <div class="progress__bar"><div class="progress__fill" id="progress-bar"></div></div>
+        <span class="progress__label"><strong id="progress-chars">0</strong> / <span id="progress-total">0</span> chars</span>
+      </div>
+      <button class="btn btn--primary" id="btn-submit" type="button" disabled>
+        Submit
+      </button>
+    </section>
+
+  </main>
+
+  <!-- Results modal — shows on submit click -->
+  <div class="modal" id="results-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal__card">
+      <h2 class="modal__title" id="modal-title">Submit your work?</h2>
+      <p class="modal__sub" id="modal-sub">Review the breakdown, then send your score to the gradebook.</p>
+
+      <div class="score-row">
+        <div class="score-row__value" id="r-score">—</div>
+        <div class="score-row__label">Final grade</div>
+      </div>
+
+      <dl class="breakdown">
+        <div class="breakdown__item">
+          <dt>WPM</dt>
+          <dd id="r-wpm">—</dd>
+        </div>
+        <div class="breakdown__item">
+          <dt>Accuracy</dt>
+          <dd id="r-accuracy">—</dd>
+        </div>
+        <div class="breakdown__item">
+          <dt>Time</dt>
+          <dd id="r-time">—</dd>
+        </div>
+        <div class="breakdown__item">
+          <dt>Errors</dt>
+          <dd id="r-errors">—</dd>
+        </div>
+      </dl>
+
+      <p class="modal__note" id="modal-note">Once you submit, your grade is sent to the Canvas gradebook and you can't change it.</p>
+
+      <div class="modal__actions">
+        <button class="btn btn--secondary" id="btn-cancel" type="button">Keep typing</button>
+        <button class="btn btn--success"   id="btn-confirm" type="button">Submit to gradebook</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/zest-bridge.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // === Configuration constants ====================================
+    // Fixed scoring formula:
+    //   wpmPct = min(WPM / TARGET_WPM, 1) × 100   (speed vs the target; capped)
+    //   Base   = 0.65 × Accuracy + 0.35 × wpmPct  (both are 0–100 percentages)
+    //   Final  = Base × (Accuracy / 100)          (accuracy multiplier)
+    //   Final is clamped to 0–100 for the gradebook.
+    //
+    // Accuracy is weighted at 65%, speed at 35%. WPM is measured against a fixed
+    // TARGET_WPM: hitting it earns full speed marks, and exceeding it is capped
+    // so raw speed can't offset low accuracy. The final ×(Accuracy/100) is an
+    // additional accuracy penalty. (Previously WPM was fed in raw, so even a
+    // perfect run maxed out near 76%.)
+
+    // Speed target: typing at or above this WPM earns full marks on the 35%
+    // speed component. Fixed for all passages (not per-zest configurable).
+    const TARGET_WPM = 30;
+
+    // Submit unlocks at this fraction of the passage typed (by length).
+    const SUBMIT_UNLOCK_RATIO = 0.75;
+
+    // Fallback passage if no assessment config is set.
+    const FALLBACK_PASSAGE =
+`We are on a fun trip to a big lake, and we all feel glad to go.
+The sun is up, and the air is warm as we pack up our bags.
+Dad has a map, and Mom has a plan, and we all hop in the van.
+
+We ride on a long road, and we see red barns and green trees.
+A fox runs by, and we all look and laugh at the fast red fox!
+The van hums on, and we sing a song as we go along.
+
+At the lake, we jump out and run to the dock by the water.
+The sand is soft, and the waves are slow and calm on the shore.
+We toss a ball, and we skip rocks, and we splash in the cool lake.
+
+You can sit in the sun, or run and play with a pal.
+We all feel glad and free and full of fun at the lake.
+As the day ends, we pack up slow and head back home again.
+
+It was a good day, and we all cannot wait to go again!`;
+
+    // Resolved at init() from assessment config (with fallbacks).
+    let TARGET_TEXT = FALLBACK_PASSAGE;
+    let LESSON_TITLE = '';
+
+    // === DOM refs ===================================================
+    const elTitle      = document.getElementById('lesson-title');
+    const elStatePill  = document.getElementById('state-pill');
+    const elBtnRestart = document.getElementById('btn-restart');
+    const elBtnSubmit  = document.getElementById('btn-submit');
+
+    const elStatTime   = document.getElementById('stat-time');
+    const elStatWpm    = document.getElementById('stat-wpm');
+    const elStatAcc    = document.getElementById('stat-accuracy');
+    const elStatProg   = document.getElementById('stat-progress');
+
+    const elDisplay    = document.getElementById('text-display');
+    const elInput      = document.getElementById('typing-input');
+
+    const elProgBar    = document.getElementById('progress-bar');
+    const elProgChars  = document.getElementById('progress-chars');
+    const elProgTotal  = document.getElementById('progress-total');
+
+    const elModal      = document.getElementById('results-modal');
+    const elModalTitle = document.getElementById('modal-title');
+    const elModalSub   = document.getElementById('modal-sub');
+    const elModalNote  = document.getElementById('modal-note');
+    const elBtnCancel  = document.getElementById('btn-cancel');
+    const elBtnConfirm = document.getElementById('btn-confirm');
+    const elRScore     = document.getElementById('r-score');
+    const elRWpm       = document.getElementById('r-wpm');
+    const elRAccuracy  = document.getElementById('r-accuracy');
+    const elRTime      = document.getElementById('r-time');
+    const elRErrors    = document.getElementById('r-errors');
+
+    // === State ======================================================
+    let appState     = 'idle';     // idle | running | complete | submitted
+    let startTime    = null;
+    let elapsedMs    = 0;
+    let timerHandle  = null;
+    let saveHandle   = null;
+    let keysTyped    = 0;
+    let submitted    = false;
+    let finalStats   = null;
+
+    // === Init =======================================================
+    async function init() {
+      let cfg = null;
+      if (window.Zest && typeof Zest.getAssessmentConfig === 'function') {
+        cfg = Zest.getAssessmentConfig();
+      }
+      if (cfg && typeof cfg.passage === 'string' && cfg.passage.trim().length > 0) {
+        TARGET_TEXT = cfg.passage;
+      }
+      if (cfg && typeof cfg.title === 'string') {
+        LESSON_TITLE = cfg.title;
+      }
+      applyLessonTitle();
+      elProgTotal.textContent = TARGET_TEXT.length;
+      renderDisplay('');
+
+      // Restore prior state (resume).
+      try {
+        const saved = window.Zest ? await Zest.loadState() : null;
+        if (saved) {
+          elapsedMs = saved.elapsedMs || 0;
+          keysTyped = saved.keysTyped || 0;
+          if (saved.submitted && saved.finalStats) {
+            submitted  = true;
+            finalStats = saved.finalStats;
+            renderDisplay(TARGET_TEXT);
+            updateStats(TARGET_TEXT);
+            updateTimerDisplay();
+            setAppState('submitted');
+            return;
+          }
+          if (saved.typedText) {
+            elInput.value = saved.typedText;
+            renderDisplay(saved.typedText);
+            updateStats(saved.typedText);
+            updateTimerDisplay();
+          }
+        }
+      } catch (_) { /* start fresh */ }
+    }
+
+    function applyLessonTitle() {
+      if (LESSON_TITLE) {
+        elTitle.innerHTML = 'Keyboarding Practice <span class="lesson">— ' +
+          escapeHtml(LESSON_TITLE) + '</span>';
+      } else {
+        elTitle.textContent = 'Keyboarding Practice';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // === App state ==================================================
+    function setAppState(s) {
+      appState = s;
+      const labels = { idle: 'Ready', running: 'Typing', complete: 'Complete', submitted: 'Submitted' };
+      elStatePill.textContent = labels[s] || s;
+      elStatePill.dataset.state = s;
+      // Submit availability is computed by updateSubmitAvailability() based on
+      // chars typed; here we just disable when submitted.
+      if (s === 'submitted') {
+        elInput.readOnly = true;
+        elBtnSubmit.disabled = true;
+        elBtnSubmit.textContent = 'Submitted';
+      }
+    }
+
+    // === Timer ======================================================
+    function startTimer() {
+      if (timerHandle) return;
+      startTime = Date.now() - elapsedMs;
+      timerHandle = setInterval(() => {
+        elapsedMs = Date.now() - startTime;
+        updateTimerDisplay();
+        updateStats(elInput.value);
+        updateSubmitAvailability();
+      }, 500);
+    }
+    function stopTimer() {
+      if (!timerHandle) return;
+      clearInterval(timerHandle);
+      timerHandle = null;
+      if (startTime) elapsedMs = Date.now() - startTime;
+    }
+    function updateTimerDisplay() {
+      const s = Math.floor(elapsedMs / 1000);
+      const m = Math.floor(s / 60);
+      elStatTime.textContent = m + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    // === Stats ======================================================
+    function calcStats(typed) {
+      const len   = typed.length;
+      const total = TARGET_TEXT.length;
+      const pct   = total > 0 ? Math.round((len / total) * 100) : 0;
+      let correct = 0;
+      for (let i = 0; i < len; i++) if (typed[i] === TARGET_TEXT[i]) correct++;
+      const errors   = len - correct;
+      const accuracy = len > 0 ? Math.round((correct / len) * 100) : null;
+      const minutes  = elapsedMs / 60000;
+      const wpm      = (minutes > 0.05 && len > 0) ? Math.round((len / 5) / minutes) : null;
+      return { pct, accuracy, wpm, errors, len, total, correct };
+    }
+    function updateStats(typed) {
+      const s = calcStats(typed);
+      elStatProg.textContent = s.pct + '%';
+      elStatWpm.textContent  = s.wpm      !== null ? String(s.wpm)    : '—';
+      elStatAcc.textContent  = s.accuracy !== null ? s.accuracy + '%' : '—';
+      elProgChars.textContent = s.len;
+      elProgBar.style.width = s.pct + '%';
+    }
+
+    // === Display ====================================================
+    function renderDisplay(typed) {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < TARGET_TEXT.length; i++) {
+        const ch = TARGET_TEXT[i];
+        const span = document.createElement('span');
+        let cls = 'char';
+        if (i < typed.length) {
+          cls += typed[i] === ch ? ' char--correct' : ' char--incorrect';
+        } else if (i === typed.length) {
+          cls += ' char--current';
+        } else {
+          cls += ' char--pending';
+        }
+        // Tag newlines so the ::before pseudo-element can prepend a ↵ marker.
+        // This makes real line breaks visually distinct from visual word-wrap.
+        if (ch === '\n') cls += ' char--newline';
+        span.className = cls;
+        span.textContent = ch;
+        frag.appendChild(span);
+      }
+      elDisplay.innerHTML = '';
+      elDisplay.appendChild(frag);
+      const cur = elDisplay.querySelector('.char--current');
+      if (cur) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    // === Copy/paste protection ======================================
+    // Target text: block copy/cut/right-click. Screen readers still read the
+    // DOM content via aria-label + aria-readonly, so a blind student gets the
+    // passage read to them but a sighted student can't copy-paste into the
+    // input box.
+    ['copy', 'cut', 'contextmenu', 'dragstart'].forEach(evt => {
+      elDisplay.addEventListener(evt, e => e.preventDefault());
+    });
+    // Block keyboard copy (Cmd/Ctrl+C / X) when focus is on the target.
+    elDisplay.addEventListener('keydown', e => {
+      const isCopyOrCut = (e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X');
+      if (isCopyOrCut) e.preventDefault();
+    });
+
+    // Input: block paste so students can't paste the target text in (even
+    // if they got around the target-text protection some other way).
+    elInput.addEventListener('paste', e => e.preventDefault());
+    elInput.addEventListener('drop',  e => e.preventDefault());
+
+    // === Restart ====================================================
+    elBtnRestart.addEventListener('click', () => {
+      if (submitted) return;
+      stopTimer();
+      clearInterval(saveHandle);
+      elInput.value = '';
+      elInput.readOnly = false;
+      elapsedMs   = 0;
+      keysTyped   = 0;
+      finalStats  = null;
+      elStatTime.textContent = '0:00';
+      elStatWpm.textContent  = '—';
+      elStatAcc.textContent  = '—';
+      setAppState('idle');
+      renderDisplay('');
+      updateStats('');
+      updateSubmitAvailability();
+      saveProgress();
+      elInput.focus();
+    });
+
+    // === Input handling — auto-start on first keystroke =============
+    elInput.addEventListener('keydown', e => {
+      if (submitted) { e.preventDefault(); return; }
+      if (appState === 'idle' && e.key.length === 1) keysTyped++;
+      else if (appState === 'running' && (e.key.length === 1 || e.key === 'Enter')) keysTyped++;
+    });
+
+    elInput.addEventListener('input', () => {
+      if (submitted) return;
+
+      // Auto-start the session on the first character typed.
+      if (appState === 'idle' && elInput.value.length > 0) {
+        setAppState('running');
+        startTimer();
+        clearInterval(saveHandle);
+        saveHandle = setInterval(saveProgress, 10000);
+      }
+
+      const typed = elInput.value;
+      // Cap input length to the target passage.
+      if (typed.length > TARGET_TEXT.length) {
+        elInput.value = typed.slice(0, TARGET_TEXT.length);
+        return;
+      }
+
+      renderDisplay(typed);
+      updateStats(typed);
+      updateSubmitAvailability();
+
+      // Reaching 100% match flips state to complete (timer stops) but does
+      // NOT auto-submit — student still clicks Submit when ready.
+      if (typed === TARGET_TEXT && appState === 'running') {
+        stopTimer();
+        setAppState('complete');
+      }
+    });
+
+    // === Submit availability ========================================
+    // Label stays as "Submit" at all times. Disabled state alone signals
+    // that it isn't actionable yet — the progress bar gives the student
+    // their reference point.
+    function updateSubmitAvailability() {
+      if (submitted) return;
+      const len = elInput.value.length;
+      const ratio = TARGET_TEXT.length > 0 ? (len / TARGET_TEXT.length) : 0;
+      elBtnSubmit.disabled = ratio < SUBMIT_UNLOCK_RATIO;
+    }
+
+    // === Scoring formula ============================================
+    function computeFinalScore(wpm, accuracy) {
+      // wpmPct = min(WPM / TARGET_WPM, 1) × 100  (speed vs target, capped at 100)
+      // Base   = 0.65 × Accuracy + 0.35 × wpmPct (both 0–100 percentages)
+      // Final  = Base × (Accuracy / 100)         (accuracy multiplier penalty)
+      // Final is clamped to 0–100 to stay within gradebook range.
+      const wpmPct = Math.min(100, (wpm / TARGET_WPM) * 100);
+      const base = 0.65 * accuracy + 0.35 * wpmPct;
+      const final = base * (accuracy / 100);
+      return Math.max(0, Math.min(100, Math.round(final)));
+    }
+
+    // === Submit flow ================================================
+    elBtnSubmit.addEventListener('click', () => {
+      if (submitted) return;
+      // Stop the timer at submit time so the breakdown matches what's sent.
+      stopTimer();
+      const typed = elInput.value;
+      const s = calcStats(typed);
+      const wpm = s.wpm || 0;
+      const accuracy = s.accuracy || 0;
+      finalStats = {
+        wpm,
+        accuracy,
+        durationSeconds: Math.round(elapsedMs / 1000),
+        errors: s.errors,
+        keysTyped,
+        completed: typed === TARGET_TEXT,
+        completionPct: s.pct
+      };
+      showReviewModal();
+    });
+
+    function showReviewModal() {
+      const { wpm, accuracy, durationSeconds, errors, completionPct, completed } = finalStats;
+      const finalScore = computeFinalScore(wpm, accuracy);
+      const m = Math.floor(durationSeconds / 60);
+      const sec = durationSeconds % 60;
+
+      elModalTitle.textContent = submitted ? 'Submitted' : 'Submit your work?';
+      elModalSub.textContent   = submitted
+        ? 'Your grade has been sent to the Canvas gradebook.'
+        : 'Review the breakdown, then send your score to the gradebook.';
+
+      elRScore.textContent    = finalScore + '%';
+      elRWpm.textContent      = wpm + ' wpm';
+      elRAccuracy.textContent = accuracy + '%';
+      elRTime.textContent     = m + ':' + String(sec).padStart(2, '0');
+      elRErrors.textContent   = String(errors);
+
+      if (submitted) {
+        elBtnCancel.style.display  = 'none';
+        elBtnConfirm.disabled      = true;
+        elBtnConfirm.textContent   = 'Submitted';
+        elModalNote.textContent    = '';
+      } else {
+        elBtnCancel.style.display  = '';
+        elBtnConfirm.disabled      = false;
+        elBtnConfirm.textContent   = 'Submit to gradebook';
+        elModalNote.textContent    = completed
+          ? "Once you submit, your grade is sent to the Canvas gradebook and you can't change it."
+          : 'You\'re submitting at ' + completionPct + '%. Once you submit, you can\'t add to your work.';
+      }
+
+      // Stash on the modal so confirm can read it.
+      elModal._finalScore = finalScore;
+      elModal.classList.add('show');
+    }
+
+    function hideReviewModal() {
+      elModal.classList.remove('show');
+    }
+
+    elBtnCancel.addEventListener('click', () => {
+      hideReviewModal();
+      // Resume the timer if the student isn't already at 100%.
+      if (appState === 'running') startTimer();
+      else if (appState === 'idle' && elInput.value.length > 0) {
+        // Edge case: they unlocked submit, then cancelled. Stay idle/running
+        // appropriately — don't auto-restart timer if we never set it.
+      }
+      elInput.focus();
+    });
+
+    elBtnConfirm.addEventListener('click', async () => {
+      if (submitted || !finalStats) return;
+      elBtnConfirm.disabled = true;
+      elBtnConfirm.textContent = 'Submitting…';
+      const finalScore = elModal._finalScore;
+      try {
+        if (window.Zest) {
+          await Zest.submitScore(finalScore, {
+            artifacts: finalStats,
+            comment: [
+              'WPM: ' + finalStats.wpm,
+              'Accuracy: ' + finalStats.accuracy + '%',
+              'Time: ' + finalStats.durationSeconds + 's',
+              'Errors: ' + finalStats.errors,
+              'Keys typed: ' + finalStats.keysTyped,
+              'Completion: ' + finalStats.completionPct + '%'
+            ].join(' | ')
+          });
+        }
+        submitted = true;
+        setAppState('submitted');
+        saveProgress();
+        // Refresh modal to show the submitted state.
+        showReviewModal();
+      } catch (err) {
+        elBtnConfirm.disabled = false;
+        elBtnConfirm.textContent = 'Submit to gradebook';
+        elModalNote.textContent = 'Submission failed — please try again.';
+      }
+    });
+
+    // === State persistence ==========================================
+    function saveProgress() {
+      if (!window.Zest) return;
+      try {
+        Zest.saveState({
+          typedText: elInput.value,
+          elapsedMs,
+          keysTyped,
+          submitted,
+          finalStats
+        });
+      } catch (_) {}
+    }
+
+    // === Font size accessibility control ============================
+    // Steps through a fixed scale via two header buttons. Preference is
+    // persisted per-browser in localStorage so a student's setting sticks
+    // across sessions and across different zests on the same host. Applies
+    // to BOTH the target text and the input textarea via a CSS variable.
+    const FONT_SIZES = [14, 16, 18, 20, 24]; // px — monospace
+    const DEFAULT_FONT_INDEX = 1;            // 16px
+    const FONT_STORAGE_KEY = 'zest-typing-fontsize';
+
+    const elBtnFontSmaller = document.getElementById('btn-font-smaller');
+    const elBtnFontLarger  = document.getElementById('btn-font-larger');
+    let fontIndex = DEFAULT_FONT_INDEX;
+
+    function loadFontPref() {
+      try {
+        const raw = localStorage.getItem(FONT_STORAGE_KEY);
+        if (raw === null) return;
+        const idx = parseInt(raw, 10);
+        if (!Number.isNaN(idx) && idx >= 0 && idx < FONT_SIZES.length) {
+          fontIndex = idx;
+        }
+      } catch (_) { /* localStorage may be unavailable; use default */ }
+    }
+
+    function applyFontSize() {
+      document.documentElement.style.setProperty('--typing-font-size', FONT_SIZES[fontIndex] + 'px');
+      elBtnFontSmaller.disabled = fontIndex === 0;
+      elBtnFontLarger.disabled  = fontIndex === FONT_SIZES.length - 1;
+      try { localStorage.setItem(FONT_STORAGE_KEY, String(fontIndex)); } catch (_) {}
+    }
+
+    elBtnFontSmaller.addEventListener('click', () => {
+      if (fontIndex > 0) { fontIndex--; applyFontSize(); }
+    });
+    elBtnFontLarger.addEventListener('click', () => {
+      if (fontIndex < FONT_SIZES.length - 1) { fontIndex++; applyFontSize(); }
+    });
+
+    loadFontPref();
+    applyFontSize();
+
+    // === Fullscreen toggle ==========================================
+    // The Zest wrapper grants this iframe fullscreen capability via the
+    // 'fullscreen' permission in zest.json (translated to allow="fullscreen *"
+    // by the server's buildAllowAttr helper). Requesting fullscreen here
+    // promotes the typing zest to fill the viewport — distraction-free mode.
+    //
+    // We target document.documentElement so the entire content document
+    // fills the screen. The browser handles the iframe boundary
+    // transparently: the user sees the content full-screen, with no Canvas
+    // chrome or wrapper visible.
+    const elBtnFullscreen = document.getElementById('btn-fullscreen');
+    const elIconFsEnter   = document.getElementById('icon-fs-enter');
+    const elIconFsExit    = document.getElementById('icon-fs-exit');
+
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    function enterFullscreen() {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) return;
+      try {
+        const p = req.call(el);
+        if (p && typeof p.then === 'function') p.catch(() => {});
+      } catch (_) { /* ignore */ }
+    }
+
+    function exitFullscreen() {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (!exit) return;
+      try {
+        const p = exit.call(document);
+        if (p && typeof p.then === 'function') p.catch(() => {});
+      } catch (_) { /* ignore */ }
+    }
+
+    function syncFullscreenButton() {
+      const active = isFullscreen();
+      elIconFsEnter.style.display = active ? 'none' : 'block';
+      elIconFsExit.style.display  = active ? 'block' : 'none';
+      elBtnFullscreen.setAttribute(
+        'aria-label',
+        active ? 'Exit fullscreen' : 'Enter distraction-free fullscreen'
+      );
+      elBtnFullscreen.setAttribute(
+        'title',
+        active ? 'Exit fullscreen (or press Esc)' : 'Distraction-free fullscreen'
+      );
+    }
+
+    elBtnFullscreen.addEventListener('click', () => {
+      if (isFullscreen()) exitFullscreen();
+      else enterFullscreen();
+    });
+
+    // Sync icon when fullscreen changes by any means (incl. browser Esc).
+    document.addEventListener('fullscreenchange', syncFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+
+    // === Bootstrap ==================================================
+    function bootstrap() {
+      if (window.Zest && typeof Zest.onReady === 'function') {
+        Zest.onReady(init);
+      } else {
+        init();
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+
+  })();
+  </script>
+</body>
+</html>
