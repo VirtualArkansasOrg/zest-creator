@@ -147,6 +147,15 @@
     }
 
     /* Passage */
+    .typed-section { padding: 16px 20px 20px; }
+    .typed-section h2 { margin: 0 0 10px; font-size: 0.95rem; color: var(--navy); font-weight: 700; }
+    .typed-text { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.95rem; line-height: 1.7; background: #f5f7fb; border: 1px solid #d9dee8; border-radius: 8px; padding: 12px 14px; }
+    .t-ok { color: #1f7a3a; }
+    .t-wrong { background: #fde2e2; color: #b42318; text-decoration: underline; border-radius: 2px; }
+    .t-missing { color: #9aa3b2; }
+    .note { margin: 0 0 10px; font-size: 0.85rem; color: #5b6472; }
+    .legend { margin: 0 0 10px; font-size: 0.85rem; color: #5b6472; }
+    .legend span { padding: 0 4px; }
     .passage-section { padding: 16px 20px 20px; }
     .passage-section h2 { margin: 0 0 10px; font-size: 0.95rem; color: var(--navy); font-weight: 700; }
     .passage-text {
@@ -192,7 +201,8 @@
     const TARGET_WPM = 30;
     const TARGET_ACC = 95;
 
-    const TARGET_TEXT =
+    // Only used when neither the submission nor the server says which passage was set.
+    const DEFAULT_TEXT =
 `We are on a fun trip to a big lake, and we all feel glad to go.
 The sun is up, and the air is warm as we pack up our bags.
 Dad has a map, and Mom has a plan, and we all hop in the van.
@@ -232,6 +242,35 @@ It was a good day, and we all cannot wait to go again!`;
       return `${m}:${String(s).padStart(2, '0')}`;
     }
 
+    function escapeHtml(v) {
+      return String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // What the student typed, character by character against the passage:
+    // right, wrong (with the expected character on hover), or never reached.
+    function renderTyped(passage, typed) {
+      let html = '';
+      let wrong = 0;
+      for (let i = 0; i < passage.length; i++) {
+        const want = passage[i];
+        const got = typed[i];
+        if (got === undefined) {
+          html += `<span class="t-missing">${escapeHtml(want)}</span>`;
+        } else if (got === want) {
+          html += `<span class="t-ok">${escapeHtml(want)}</span>`;
+        } else {
+          wrong++;
+          const shown = got === ' ' ? '\u2423' : got === '\n' ? '\u21b5' : got;
+          html += `<span class="t-wrong" title="expected ${escapeHtml(want === '\n' ? 'line break' : want)}">${escapeHtml(shown)}</span>`;
+        }
+      }
+      if (typed.length > passage.length) {
+        wrong += typed.length - passage.length;
+        html += `<span class="t-wrong" title="beyond the end of the passage">${escapeHtml(typed.slice(passage.length))}</span>`;
+      }
+      return { html, wrong };
+    }
+
     // 3.1.0 sent the stats only as the comment text:
     // "WPM: 32 | Accuracy: 96% | Time: 45s | Errors: 2 | Keys typed: 48 | Completion: 100%"
     function parseComment(comment) {
@@ -260,9 +299,46 @@ It was a good day, and we all cannot wait to go again!`;
           return;
         }
 
-        // 3.1.1 sends the stats as artifacts; 3.1.0 only put them in the comment.
+        // 3.1.1+ sends the stats as artifacts; 3.1.0 only put them in the comment.
         const stats = submission.artifacts || parseComment(submission.comment) || {};
         const { wpm = 0, accuracy = 0, durationSeconds = 0, errors = 0, keysTyped = 0 } = stats;
+
+        // The passage: recorded with the submission (3.1.2+), else the item's current
+        // setting (server 1.2.1+ sends it), else the package default.
+        const cfg = (window.Zest && typeof Zest.getAssessmentConfig === 'function' && Zest.getAssessmentConfig()) || null;
+        let passage;
+        let passageNote;
+        if (typeof stats.passage === 'string' && stats.passage.length > 0) {
+          passage = stats.passage;
+          passageNote = 'The passage this student was given.';
+        } else if (cfg && typeof cfg.passage === 'string' && cfg.passage.trim().length > 0) {
+          passage = cfg.passage;
+          passageNote = 'The passage currently set for this item. This submission predates package 3.1.2, which records the passage with each submission, so it may have been different at the time.';
+        } else {
+          passage = DEFAULT_TEXT;
+          passageNote = 'The package default. The passage in use was not recorded with this submission, and the server did not send the current setting (server 1.2.1 or later does).';
+        }
+        const title = (typeof stats.title === 'string' && stats.title) || (cfg && typeof cfg.title === 'string' && cfg.title) || null;
+        if (title) document.querySelector('.header h1').textContent = 'Keyboarding Practice \u2014 ' + title;
+
+        let typedSection;
+        if (typeof stats.typedText === 'string') {
+          const r = renderTyped(passage, stats.typedText);
+          typedSection = `
+          <div class="typed-section">
+            <h2>What the student typed (${stats.typedText.length} of ${passage.length} characters${r.wrong ? `, ${r.wrong} wrong` : ', no errors'})</h2>
+            <p class="legend"><span class="t-ok">correct</span> <span class="t-wrong">wrong (hover for the expected character)</span> <span class="t-missing">not reached</span></p>
+            <div class="typed-text">${r.html}</div>
+          </div>`;
+        } else {
+          typedSection = `
+          <div class="typed-section">
+            <h2>What the student typed</h2>
+            <p class="note">Not recorded. Submissions made with package 3.1.2 or later include the typed text.</p>
+          </div>`;
+        }
+        const rawStats = {};
+        for (const k of Object.keys(stats)) if (k !== 'passage' && k !== 'typedText' && k !== 'title') rawStats[k] = stats[k];
 
         // The score is the one index.html computed and sent to the gradebook.
         const score = typeof submission.score === 'number' ? Math.round(submission.score) : null;
@@ -297,12 +373,15 @@ It was a good day, and we all cannot wait to go again!`;
 
           <div class="raw-section">
             <h2>Raw submission data</h2>
-            <pre>${JSON.stringify(stats, null, 2)}</pre>
+            <pre>${escapeHtml(JSON.stringify(rawStats, null, 2))}</pre>
           </div>
 
+          ${typedSection}
+
           <div class="passage-section">
-            <h2>Passage (${TARGET_TEXT.length} characters)</h2>
-            <div class="passage-text">${TARGET_TEXT}</div>
+            <h2>Passage (${passage.length} characters)</h2>
+            <p class="note">${passageNote}</p>
+            <div class="passage-text">${escapeHtml(passage)}</div>
           </div>
         `;
 

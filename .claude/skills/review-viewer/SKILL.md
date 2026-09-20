@@ -254,3 +254,16 @@ The answer key is **never sent to students** — it is only available in review 
 6. **No state persistence needed**: review.html doesn't use `saveState`/`loadState` — it reads from the submission object.
 7. **Data visualization**: If the student's artifacts include numerical data (growth data, timing, etc.), consider rendering SVG charts in the review view to help the teacher evaluate at a glance.
 8. **Answer key**: Use `Zest.getAnswerKey()` instead of hardcoding answers — keeps the key secure and allows the same review.html to work with different answer key files.
+
+
+## Record what the reviewer will need
+
+A teacher can change the assessment config after students have submitted, and a
+review page cannot know what a student saw unless the submission says so. Put
+the values that shaped the attempt (the passage or question set, the settings,
+the student's raw answers or typed text) into the `artifacts` of
+`Zest.submitScore()` / `Zest.submitWork()`, and have `review.html` read them
+from `Zest.getSubmission().artifacts` first, falling back to
+`Zest.getAssessmentConfig()` (the item's current settings, available in review
+mode from server 1.2.1) and only then to the package's defaults, saying which
+one it is showing. Escape anything a student typed before putting it in HTML.

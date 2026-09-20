@@ -265,7 +265,7 @@ Zest.onSyncStatus(function(status) {
 Config is stored per-zest (by `contentId` only). If a teacher needs different config for the same content in two assignments, they duplicate the zest in the picker and configure each copy independently.
 
 ### Zest.getAssessmentConfig()
-Returns the assessment config that was provided at launch time (synchronous). This is the resolved config sent via the `zest-context` postMessage. Returns `null` if no config is available.
+Returns the assessment config that was provided at launch time (synchronous). This is the resolved config sent via the `zest-context` postMessage. Returns `null` if no config is available. Student launches always receive it; SpeedGrader review pages and the instructor preview receive it from server 1.2.1 on, so a `review.html` must cope with `null` there. Because a teacher can change the config after students submit, record the values the student actually saw (the passage, the question set, the settings) in the submission `artifacts` and prefer those in `review.html`.
 
 ```javascript
 Zest.onReady(function(ctx) {

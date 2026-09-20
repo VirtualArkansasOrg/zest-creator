@@ -1040,7 +1040,13 @@ It was a good day, and we all cannot wait to go again!`;
       try {
         if (window.Zest) {
           await Zest.submitScore(finalScore, {
-            artifacts: finalStats,
+            // The stats plus what the student was given and what they typed, so the
+            // review page can show the attempt even after the passage is changed.
+            artifacts: Object.assign({}, finalStats, {
+              title: LESSON_TITLE,
+              passage: TARGET_TEXT,
+              typedText: elInput.value
+            }),
             comment: [
               'WPM: ' + finalStats.wpm,
               'Accuracy: ' + finalStats.accuracy + '%',
