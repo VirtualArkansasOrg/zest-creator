@@ -2,7 +2,7 @@
   "zestSpec": "1.0",
   "name": "Keyboarding Practice",
   "description": "Students type a configurable passage and are auto-graded with a fixed formula that weights accuracy at 65% and WPM at 35% (WPM scored against a 30 wpm target, capped), with an additional accuracy multiplier. The passage and title can be customized per zest via the Assessment Editor.",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "grading": "auto",
   "reviewFile": "review.html",
   "editorFile": "editor.html",

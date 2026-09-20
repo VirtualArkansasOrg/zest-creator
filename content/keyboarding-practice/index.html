@@ -718,6 +718,8 @@ It was a good day, and we all cannot wait to go again!`;
     let keysTyped    = 0;
     let submitted    = false;
     let finalStats   = null;
+    let ALLOW_RETRY  = true;   // from the launch context (Zest.getAttempts().canRetry); Zest knows the assignment's attempt limit
+    let restartTimer = null;
 
     // === Init =======================================================
     async function init() {
@@ -731,6 +733,10 @@ It was a good day, and we all cannot wait to go again!`;
       if (cfg && typeof cfg.title === 'string') {
         LESSON_TITLE = cfg.title;
       }
+      // The server says whether the Canvas assignment allows another attempt
+      // (Zest 1.2.2+). Older servers say nothing, and then nothing is locked.
+      const attempts = (window.Zest && typeof Zest.getAttempts === 'function') ? Zest.getAttempts() : null;
+      ALLOW_RETRY = !(attempts && attempts.canRetry === false);
       applyLessonTitle();
       elProgTotal.textContent = TARGET_TEXT.length;
       renderDisplay('');
@@ -785,6 +791,11 @@ It was a good day, and we all cannot wait to go again!`;
         elInput.readOnly = true;
         elBtnSubmit.disabled = true;
         elBtnSubmit.textContent = 'Submitted';
+        elBtnRestart.disabled = !ALLOW_RETRY;
+        elBtnRestart.title = ALLOW_RETRY ? 'Start over and submit again' : 'Your teacher allows one submission';
+      } else {
+        elBtnRestart.disabled = false;
+        elBtnRestart.title = '';
       }
     }
 
@@ -880,8 +891,22 @@ It was a good day, and we all cannot wait to go again!`;
     elInput.addEventListener('drop',  e => e.preventDefault());
 
     // === Restart ====================================================
+    // Two clicks within 4 s when there is anything to lose (typed text, or a
+    // submission); Canvas blocks confirm(), so the button itself asks.
     elBtnRestart.addEventListener('click', () => {
-      if (submitted) return;
+      if (submitted && !ALLOW_RETRY) return;
+      const somethingToLose = submitted || elInput.value.length > 0 || elapsedMs > 0;
+      if (somethingToLose && !restartTimer) {
+        elBtnRestart.textContent = submitted ? 'Start over? Click again' : 'Clear it all? Click again';
+        restartTimer = setTimeout(() => {
+          restartTimer = null;
+          elBtnRestart.textContent = 'Restart';
+        }, 4000);
+        return;
+      }
+      if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+      elBtnRestart.textContent = 'Restart';
+      hideModal();
       stopTimer();
       clearInterval(saveHandle);
       elInput.value = '';
@@ -889,6 +914,8 @@ It was a good day, and we all cannot wait to go again!`;
       elapsedMs   = 0;
       keysTyped   = 0;
       finalStats  = null;
+      submitted   = false;
+      elBtnSubmit.textContent = 'Submit';
       elStatTime.textContent = '0:00';
       elStatWpm.textContent  = '—';
       elStatAcc.textContent  = '—';
@@ -1002,14 +1029,19 @@ It was a good day, and we all cannot wait to go again!`;
         elBtnCancel.style.display  = 'none';
         elBtnConfirm.disabled      = true;
         elBtnConfirm.textContent   = 'Submitted';
-        elModalNote.textContent    = '';
+        elModalNote.textContent    = ALLOW_RETRY ? 'Your score is in the gradebook. Press Restart to try again; a new submission replaces it.' : '';
       } else {
         elBtnCancel.style.display  = '';
         elBtnConfirm.disabled      = false;
         elBtnConfirm.textContent   = 'Submit to gradebook';
+        const again = ALLOW_RETRY
+          ? ' You can start over and submit again; the newest submission replaces your grade.'
+          : '';
         elModalNote.textContent    = completed
-          ? "Once you submit, your grade is sent to the Canvas gradebook and you can't change it."
-          : 'You\'re submitting at ' + completionPct + '%. Once you submit, you can\'t add to your work.';
+          ? (ALLOW_RETRY
+              ? 'Once you submit, your grade is sent to the Canvas gradebook.' + again
+              : "Once you submit, your grade is sent to the Canvas gradebook and you can't change it.")
+          : 'You\'re submitting at ' + completionPct + '%.' + (ALLOW_RETRY ? again : ' Once you submit, you can\'t add to your work.');
       }
 
       // Stash on the modal so confirm can read it.

@@ -45,6 +45,13 @@ Zest.onReady(function(ctx) {
 ### Zest.getContext()
 Returns the full context object, or `null` if not yet received.
 
+### Zest.getAttempts()
+Bridge 3.2, server 1.2.2. The assignment's attempt policy for this launch, or `null` on older servers: `{ allowed, used, submissions, canRetry, source }`. `allowed` is `-1` when unlimited; `submissions` is how many times this student has submitted this item on this assignment; `source` is `'canvas'` when the assignment's own limit reached the tool and `'default'` when the server assumed one. The counts stay current with the submissions the page makes. Zest handles retries itself: when `canRetry` is true and the student has submitted, the wrapper shows "Start a new attempt", which clears the saved state and reloads the content, so a package starts fresh with no retry logic of its own. Do not lock a package after submitting; if you must show a "submitted" state, let the student out of it when `canRetry` is not `false`.
+```javascript
+var attempts = Zest.getAttempts();
+if (attempts && attempts.canRetry === false) { /* one attempt: keep the submitted view */ }
+```
+
 ### Zest.getUser()
 Returns the current user's context. Returns `null` if not in an LTI context.
 ```javascript
